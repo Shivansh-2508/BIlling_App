@@ -64,6 +64,34 @@ def create_invoice():
         "total_amount": total_amount,
     }
 
+    result = invoices.insert_one(invoice)
+    invoice["_id"] = str(result.inserted_id)  # Correctly fetch the inserted ID
+
+    return jsonify({"message": "Invoice saved successfully", "invoice": invoice})
+
+    data = request.json
+
+    for item in data["items"]:
+        item["total_qty"] = item["packing_qty"] * item["units"]
+        item["amount"] = item["total_qty"] * item["rate_per_kg"]
+
+    subtotal = sum(item["amount"] for item in data["items"])
+    cgst = subtotal * 0.09
+    sgst = subtotal * 0.09
+    total_amount = subtotal + cgst + sgst
+
+    invoice = {
+        "invoice_no": data["invoice_no"],
+        "date": data.get("date", datetime.now().strftime("%Y-%m-%d")),
+        "buyer_name": data["buyer_name"],
+        "address": data["address"],
+        "items": data["items"],
+        "subtotal": subtotal,
+        "cgst": cgst,
+        "sgst": sgst,
+        "total_amount": total_amount,
+    }
+
     invoices.insert_one(invoice)
     invoice["_id"] = str(invoice["_id"])  # Convert the ObjectId to string before returning
     return jsonify({"message": "Invoice saved successfully", "invoice": invoice})
