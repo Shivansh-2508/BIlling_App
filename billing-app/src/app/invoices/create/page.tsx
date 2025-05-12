@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function CreateInvoicePage() {
   const router = useRouter();
 
+  // Buyer-related state
+  const [buyers, setBuyers] = useState([]);
+  const [selectedBuyerId, setSelectedBuyerId] = useState('');
+
+  // Invoice form state
   const [form, setForm] = useState({
     invoice_no: '',
     date: '',
@@ -16,12 +21,37 @@ export default function CreateInvoicePage() {
     ],
   });
 
+  // Fetch buyers on mount
+  useEffect(() => {
+    fetch("http://localhost:5000/buyers")
+      .then((res) => res.json())
+      .then((data) => setBuyers(data))
+      .catch((err) => console.error("Error fetching buyers:", err));
+  }, []);
+
+  // Handle buyer selection
+  const handleBuyerChange = (e) => {
+    const buyerId = e.target.value;
+    setSelectedBuyerId(buyerId);
+
+    const selected = buyers.find((b) => b._id === buyerId);
+    if (selected) {
+      setForm((prev) => ({
+        ...prev,
+        buyer_name: selected.name,
+        address: selected.address,
+      }));
+    }
+  };
+
+  // Handle item changes
   const handleItemChange = (index: number, field: string, value: any) => {
     const updated = [...form.items];
     updated[index][field] = field === 'product_name' ? value : Number(value);
     setForm({ ...form, items: updated });
   };
 
+  // Add new item row
   const addItem = () => {
     setForm({
       ...form,
@@ -29,6 +59,7 @@ export default function CreateInvoicePage() {
     });
   };
 
+  // Handle form submission
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     const res = await fetch('http://localhost:5000/invoices', {
@@ -55,27 +86,45 @@ export default function CreateInvoicePage() {
           onChange={(e) => setForm({ ...form, invoice_no: e.target.value })}
           className="border p-2 rounded w-full"
         />
+
         <input
           type="date"
           value={form.date}
           onChange={(e) => setForm({ ...form, date: e.target.value })}
           className="border p-2 rounded w-full"
         />
+
+        {/* Buyer Dropdown */}
+        <label className="block">Select Buyer</label>
+        <select
+          value={selectedBuyerId}
+          onChange={handleBuyerChange}
+          className="border p-2 rounded w-full"
+        >
+          <option value="">-- Choose Buyer --</option>
+          {buyers.map((buyer) => (
+            <option key={buyer._id} value={buyer._id}>
+              {buyer.name}
+            </option>
+          ))}
+        </select>
+
         <input
           type="text"
           placeholder="Buyer Name"
           value={form.buyer_name}
-          onChange={(e) => setForm({ ...form, buyer_name: e.target.value })}
-          className="border p-2 rounded w-full"
-        />
-        <input
-          type="text"
-          placeholder="Address"
-          value={form.address}
-          onChange={(e) => setForm({ ...form, address: e.target.value })}
-          className="border p-2 rounded w-full"
+          readOnly
+          className="border p-2 rounded w-full bg-gray-100"
         />
 
+        <textarea
+          placeholder="Address"
+          value={form.address}
+          readOnly
+          className="border p-2 rounded w-full bg-gray-100"
+        />
+
+        {/* Items List */}
         <div className="space-y-4">
           {form.items.map((item, idx) => (
             <div key={idx} className="border p-4 rounded">
