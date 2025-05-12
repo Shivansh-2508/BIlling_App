@@ -101,5 +101,39 @@ def add_buyer():
     buyers.insert_one({"name": name, "address": address})
     return jsonify({"message": "Buyer added successfully"}), 201
 
+
+
+    
+# --- Product Routes ---
+products = db["products"]
+
+@app.route("/products", methods=["GET"])
+def get_products():
+    all_products = list(products.find({}, {"_id": 1, "name": 1, "default_packing_qty": 1, "default_rate_per_kg": 1}))
+    for product in all_products:
+        product["_id"] = str(product["_id"])
+    return jsonify(all_products)
+
+@app.route("/products", methods=["POST"])
+def add_product():
+    data = request.json
+    name = data.get("name")
+    default_packing_qty = data.get("default_packing_qty", 0)
+    default_rate_per_kg = data.get("default_rate_per_kg", 0)
+
+    if not name:
+        return jsonify({"error": "Product name is required"}), 400
+
+    products.insert_one({
+        "name": name,
+        "default_packing_qty": default_packing_qty,
+        "default_rate_per_kg": default_rate_per_kg
+    })
+    return jsonify({"message": "Product added successfully"}), 201
+
+
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
