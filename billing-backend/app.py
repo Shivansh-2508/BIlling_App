@@ -16,7 +16,8 @@ MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
 db = client["billing-app"]
 invoices = db["invoices"]
-buyers = db["buyers"]  # Moved to top
+buyers = db["buyers"]
+products = db["products"]
 
 @app.route("/")
 def home():
@@ -24,7 +25,8 @@ def home():
 
 # Utility: Convert ObjectId to string
 def convert_objectid(doc):
-    doc["_id"] = str(doc["_id"])
+    if doc and "_id" in doc and isinstance(doc["_id"], ObjectId):
+        doc["_id"] = str(doc["_id"])
     return doc
 
 # --- Invoice Routes ---
@@ -47,6 +49,18 @@ def get_invoices():
     all_invoices = [convert_objectid(inv) for inv in all_invoices]
     return jsonify(all_invoices)
 
+# GET: Single invoice by ID
+@app.route("/invoices/<invoice_id>", methods=["GET"])
+def get_invoice(invoice_id):
+    try:
+        invoice = invoices.find_one({"_id": ObjectId(invoice_id)})
+        if not invoice:
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify(convert_objectid(invoice))
+    except Exception as e:
+        print(f"Error fetching invoice {invoice_id}:", e)
+        return jsonify({"error": "Invalid invoice ID or server error"}), 400
+
 # POST: Create new invoice
 @app.route('/invoices', methods=['POST'])
 def add_invoice():
@@ -64,6 +78,35 @@ def add_invoice():
     except Exception as e:
         print('Error in /invoices:', e)
         return jsonify({'error': 'Internal server error'}), 500
+
+# PUT: Update invoice
+@app.route('/invoices/<invoice_id>', methods=['PUT'])
+def update_invoice(invoice_id):
+    try:
+        data = request.get_json()
+        result = invoices.update_one(
+            {"_id": ObjectId(invoice_id)},
+            {"$set": data}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"message": "Invoice updated successfully"}), 200
+    except Exception as e:
+        print(f"Error updating invoice {invoice_id}:", e)
+        return jsonify({"error": "Invalid invoice ID or server error"}), 400
+
+# DELETE: Delete invoice
+@app.route('/invoices/<invoice_id>', methods=['DELETE'])
+def delete_invoice(invoice_id):
+    try:
+        result = invoices.delete_one({"_id": ObjectId(invoice_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"message": "Invoice deleted successfully"}), 200
+    except Exception as e:
+        print(f"Error deleting invoice {invoice_id}:", e)
+        return jsonify({"error": "Invalid invoice ID or server error"}), 400
+
 # --- Buyer Routes ---
 
 # GET: All buyers (for dropdown)
@@ -73,6 +116,18 @@ def get_buyers():
     for buyer in all_buyers:
         buyer["_id"] = str(buyer["_id"])
     return jsonify(all_buyers)
+
+# GET: Single buyer by ID
+@app.route("/buyers/<buyer_id>", methods=["GET"])
+def get_buyer(buyer_id):
+    try:
+        buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
+        if not buyer:
+            return jsonify({"error": "Buyer not found"}), 404
+        return jsonify(convert_objectid(buyer))
+    except Exception as e:
+        print(f"Error fetching buyer {buyer_id}:", e)
+        return jsonify({"error": "Invalid buyer ID or server error"}), 400
 
 # POST: Add new buyer (admin use)
 @app.route("/buyers", methods=["POST"])
@@ -84,14 +139,38 @@ def add_buyer():
     if not name or not address:
         return jsonify({"error": "Both name and address are required"}), 400
 
-    buyers.insert_one({"name": name, "address": address})
-    return jsonify({"message": "Buyer added successfully"}), 201
+    result = buyers.insert_one({"name": name, "address": address})
+    return jsonify({"message": "Buyer added successfully", "id": str(result.inserted_id)}), 201
 
+# PUT: Update buyer
+@app.route('/buyers/<buyer_id>', methods=['PUT'])
+def update_buyer(buyer_id):
+    try:
+        data = request.get_json()
+        result = buyers.update_one(
+            {"_id": ObjectId(buyer_id)},
+            {"$set": data}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Buyer not found"}), 404
+        return jsonify({"message": "Buyer updated successfully"}), 200
+    except Exception as e:
+        print(f"Error updating buyer {buyer_id}:", e)
+        return jsonify({"error": "Invalid buyer ID or server error"}), 400
 
+# DELETE: Delete buyer
+@app.route('/buyers/<buyer_id>', methods=['DELETE'])
+def delete_buyer(buyer_id):
+    try:
+        result = buyers.delete_one({"_id": ObjectId(buyer_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Buyer not found"}), 404
+        return jsonify({"message": "Buyer deleted successfully"}), 200
+    except Exception as e:
+        print(f"Error deleting buyer {buyer_id}:", e)
+        return jsonify({"error": "Invalid buyer ID or server error"}), 400
 
-    
 # --- Product Routes ---
-products = db["products"]
 
 @app.route("/products", methods=["GET"])
 def get_products():
@@ -99,6 +178,17 @@ def get_products():
     for product in all_products:
         product["_id"] = str(product["_id"])
     return jsonify(all_products)
+
+@app.route("/products/<product_id>", methods=["GET"])
+def get_product(product_id):
+    try:
+        product = products.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+        return jsonify(convert_objectid(product))
+    except Exception as e:
+        print(f"Error fetching product {product_id}:", e)
+        return jsonify({"error": "Invalid product ID or server error"}), 400
 
 @app.route("/products", methods=["POST"])
 def add_product():
@@ -110,16 +200,106 @@ def add_product():
     if not name:
         return jsonify({"error": "Product name is required"}), 400
 
-    products.insert_one({
+    result = products.insert_one({
         "name": name,
         "default_packing_qty": default_packing_qty,
         "default_rate_per_kg": default_rate_per_kg
     })
-    return jsonify({"message": "Product added successfully"}), 201
+    return jsonify({"message": "Product added successfully", "id": str(result.inserted_id)}), 201
 
+@app.route('/products/<product_id>', methods=['PUT'])
+def update_product(product_id):
+    try:
+        data = request.get_json()
+        result = products.update_one(
+            {"_id": ObjectId(product_id)},
+            {"$set": data}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Product not found"}), 404
+        return jsonify({"message": "Product updated successfully"}), 200
+    except Exception as e:
+        print(f"Error updating product {product_id}:", e)
+        return jsonify({"error": "Invalid product ID or server error"}), 400
 
+@app.route('/products/<product_id>', methods=['DELETE'])
+def delete_product(product_id):
+    try:
+        result = products.delete_one({"_id": ObjectId(product_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Product not found"}), 404
+        return jsonify({"message": "Product deleted successfully"}), 200
+    except Exception as e:
+        print(f"Error deleting product {product_id}:", e)
+        return jsonify({"error": "Invalid product ID or server error"}), 400
 
+# --- Statement Routes ---
 
+@app.route('/statements/<buyer_id>', methods=['GET'])
+def get_buyer_statement(buyer_id):
+    try:
+        # Get date filter parameters
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # First, get the buyer name from the ID
+        buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
+        if not buyer:
+            return jsonify({"error": "Buyer not found"}), 404
+        
+        buyer_name = buyer["name"]
+        
+        # Build query for invoices
+        query = {'buyer_name': buyer_name}
+        
+        # Add date filtering if provided
+        if start_date or end_date:
+            date_query = {}
+            if start_date:
+                # Convert to datetime and set to beginning of day
+                try:
+                    start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
+                    date_query['$gte'] = start_date
+                except ValueError:
+                    return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD"}), 400
+                    
+            if end_date:
+                # Convert to datetime and set to end of day
+                try:
+                    end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+                    date_query['$lte'] = end_date
+                except ValueError:
+                    return jsonify({"error": "Invalid end_date format. Use YYYY-MM-DD"}), 400
+                    
+            if date_query:
+                query['date'] = date_query
+        
+        # Then get invoices for this buyer with date filters
+        invoices_list = list(invoices.find(query))
+        
+        # Convert ObjectId to string for each invoice
+        for inv in invoices_list:
+            inv['_id'] = str(inv['_id'])
+        
+        # Calculate totals
+        total_qty = sum(item.get('total_qty', 0) for inv in invoices_list for item in inv.get('items', []))
+        total_amount = sum(inv.get('total_amount', 0) for inv in invoices_list)
+
+        return jsonify({
+            'buyer': buyer_name,
+            'invoice_count': len(invoices_list),
+            'total_qty': total_qty,
+            'total_amount': total_amount,
+            'invoices': invoices_list,
+            'filter': {
+                'start_date': start_date,
+                'end_date': end_date
+            }
+        }), 200
+    except Exception as e:
+        print('Error in /statements/<buyer_id>:', e)
+        print(str(e))
+        return jsonify({'error': 'Internal Server Error'}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
