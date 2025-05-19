@@ -119,30 +119,27 @@ export default function CreateInvoicePage() {
     setErrors(prev => ({ ...prev, items: updatedErrors }));
   };
 
-  // Handle form submission
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
+  // Calculate totals
+  const calculateTotals = () => {
+    // Calculate item totals
+    const itemTotals = form.items.map(item => {
+      const totalQty = item.packing_qty * item.no_of_units;
+      return totalQty * item.rate_per_kg;
+    });
     
-    if (!validateForm()) {
-      return;
-    }
-
-    try {
-      const res = await fetch('http://localhost:5000/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      if (res.ok) {
-        router.push('/invoices');
-      } else {
-        alert('Failed to create invoice');
-      }
-    } catch (error) {
-      console.error('Submission error:', error);
-      alert('An error occurred while submitting the invoice');
-    }
+    // Calculate subtotal
+    const subtotal = itemTotals.reduce((sum, total) => sum + total, 0);
+    
+    // Calculate taxes (assuming 9% each for CGST and SGST)
+    const cgst = subtotal * 0.09;
+    const sgst = subtotal * 0.09;
+    
+    return {
+      subtotal,
+      cgst,
+      sgst,
+      totalAmount: subtotal + cgst + sgst
+    };
   };
 
   // Safe product selection handler
@@ -160,6 +157,45 @@ export default function CreateInvoicePage() {
     }
   };
 
+  // Unified save invoice function (combines previous handleSubmit and handleSaveInvoice)
+  const saveInvoice = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    // Calculate all totals
+    const { subtotal, cgst, sgst, totalAmount } = calculateTotals();
+
+    try {
+      const invoicePayload = {
+        ...form,
+        subtotal,
+        cgst,
+        sgst,
+        total_amount: totalAmount,
+      };
+
+      const res = await fetch('http://localhost:5000/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(invoicePayload),
+      });
+
+      if (res.ok) {
+        alert('Invoice saved successfully!');
+        router.push('/invoices');
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Failed to create invoice: ${errorData.message || res.statusText}`);
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      alert('An error occurred while submitting the invoice');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex items-center mb-6 border-b pb-4">
@@ -170,7 +206,7 @@ export default function CreateInvoicePage() {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Form Section */}
         <div className="w-full lg:w-3/5 bg-white shadow-lg rounded-xl p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={saveInvoice} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Invoice Number */}
               <div>
@@ -367,6 +403,32 @@ export default function CreateInvoicePage() {
                         className="w-full p-3 border border-gray-300 rounded-lg text-gray-800 bg-gray-100"
                       />
                     </div>
+
+                    {/* Rate Per Kg */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Rate Per Kg
+                      </label>
+                      <input
+                        type="number"
+                        value={item.rate_per_kg}
+                        onChange={(e) => handleItemChange(idx, 'rate_per_kg', e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-gray-800"
+                      />
+                    </div>
+
+                    {/* Item Total (Read-only) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Item Total
+                      </label>
+                      <input
+                        type="number"
+                        value={(item.packing_qty * item.no_of_units * item.rate_per_kg) || 0}
+                        readOnly
+                        className="w-full p-3 border border-gray-300 rounded-lg text-gray-800 bg-gray-100"
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -376,9 +438,9 @@ export default function CreateInvoicePage() {
             <div className="flex justify-end mt-6">
               <button
                 type="submit"
-                className="flex items-center bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition"
+                className="flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
               >
-                <Save className="w-5 h-5 mr-2" /> Save Invoice
+                <Save className="w-5 h-5 mr-2" /> Generate Invoice
               </button>
             </div>
           </form>

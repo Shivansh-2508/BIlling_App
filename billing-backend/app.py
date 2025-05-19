@@ -48,36 +48,22 @@ def get_invoices():
     return jsonify(all_invoices)
 
 # POST: Create new invoice
-@app.route("/invoices", methods=["POST"])
-def create_invoice():
-    data = request.json
+@app.route('/invoices', methods=['POST'])
+def add_invoice():
+    try:
+        data = request.get_json()
 
-    for item in data["items"]:
-        item["total_qty"] = item["packing_qty"] * item["units"]
-        item["amount"] = item["total_qty"] * item["rate_per_kg"]
+        # Optional: Add validation if needed
+        required_fields = ['invoice_no', 'date', 'buyer_name', 'address', 'items', 'subtotal', 'cgst', 'sgst', 'total_amount']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing field: {field}'}), 400
 
-    subtotal = sum(item["amount"] for item in data["items"])
-    cgst = subtotal * 0.09
-    sgst = subtotal * 0.09
-    total_amount = subtotal + cgst + sgst
-
-    invoice = {
-        "invoice_no": data["invoice_no"],
-        "date": data.get("date", datetime.now().strftime("%Y-%m-%d")),
-        "buyer_name": data["buyer_name"],
-        "address": data["address"],
-        "items": data["items"],
-        "subtotal": subtotal,
-        "cgst": cgst,
-        "sgst": sgst,
-        "total_amount": total_amount,
-    }
-
-    result = invoices.insert_one(invoice)
-    invoice["_id"] = str(result.inserted_id)
-
-    return jsonify({"message": "Invoice saved successfully", "invoice": invoice})
-
+        result = invoices.insert_one(data)
+        return jsonify({'message': 'Invoice saved', 'id': str(result.inserted_id)}), 201
+    except Exception as e:
+        print('Error in /invoices:', e)
+        return jsonify({'error': 'Internal server error'}), 500
 # --- Buyer Routes ---
 
 # GET: All buyers (for dropdown)
