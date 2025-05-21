@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import BackToHome from '@/components/BackToHome';
 
 // This approach uses the browser's native print functionality instead of html2pdf
 export default function PrintableStatement({ apiBaseUrl }) {
@@ -202,7 +203,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
   return (
     <div className="max-w-6xl mx-auto p-4">
       <h1 className="text-3xl font-bold mb-6 text-center">Buyer Statement</h1>
-      
+      <BackToHome/>
       {/* Control panel */}
       <div className="bg-white text-gray-700 border rounded-lg shadow-sm mb-6 p-4">
         <div className="grid md:grid-cols-3 gap-4 mb-4">

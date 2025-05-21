@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Plus, Save } from 'lucide-react';
 import { InvoicePreview } from '@/components/InvoicePreview';
+import BackToHome from '@/components/BackToHome';
 
 export default function CreateInvoicePage() {
   const router = useRouter();
@@ -200,8 +201,9 @@ export default function CreateInvoicePage() {
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex items-center mb-6 border-b pb-4">
         <FileText className="w-8 h-8 mr-3 text-blue-600" />
-        <h1 className="text-2xl font-semibold text-gray-800">Create New Invoice</h1>
+        <h1 className="text-2xl font-semibold text-gray-00">Create New Invoice</h1>
       </div>
+      <BackToHome/>
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Form Section */}

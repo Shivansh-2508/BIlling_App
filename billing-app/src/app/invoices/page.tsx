@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { InvoicePreview } from '@/components/InvoicePreview'; // adjust path if needed
 import html2pdf from 'html2pdf.js'; // Install: npm i html2pdf.js
 import { Download, FileText, Eye, Printer } from 'lucide-react';
+import BackToHome from '@/components/BackToHome';
+import CreateInvoiceButton from '@/components/CreateInvoiceButton';
 
 // Item structure - matching what's used in CreateInvoicePage
 interface Item {
@@ -239,7 +241,11 @@ export default function InvoiceListPage() {
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex items-center mb-6 border-b pb-4">
         <FileText className="w-8 h-8 mr-3 text-blue-600" />
-        <h1 className="text-2xl font-semibold text-gray-800">All Invoices</h1>
+        <h1 className="text-2xl font-semibold text-gray-00">All Invoices</h1>
+      </div>
+      <div className="flex justify-between mb-6">
+        <BackToHome />
+        <CreateInvoiceButton />
       </div>
 
       {loading ? (
