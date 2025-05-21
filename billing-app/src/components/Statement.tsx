@@ -3,7 +3,14 @@ import BackToHome from '@/components/BackToHome';
 
 // This approach uses the browser's native print functionality instead of html2pdf
 export default function PrintableStatement({ apiBaseUrl }) {
-  const [buyers, setBuyers] = useState([]);
+  type Buyer = {
+  _id: string;
+  name: string;
+  address: string;
+};
+
+const [buyers, setBuyers] = useState<Buyer[]>([]);
+
   const [selectedBuyer, setSelectedBuyer] = useState('');
   const [statement, setStatement] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -72,15 +79,22 @@ export default function PrintableStatement({ apiBaseUrl }) {
     }
   };
 
-  const handleBuyerChange = (e) => {
-    const buyer = e.target.value;
-    setSelectedBuyer(buyer);
-    if (buyer) {
-      fetchStatement(buyer);
-    } else {
-      setStatement(null);
-    }
-  };
+const handleBuyerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const buyerId = e.target.value;
+  setSelectedBuyerId(buyerId);
+  setErrors(prev => ({ ...prev, buyer: '' }));
+
+  const selected = buyers.find((b) => b._id === buyerId);
+  if (selected) {
+    setForm((prev) => ({
+      ...prev,
+      buyer_name: selected.name,
+      address: selected.address,
+    }));
+  }
+};
+
+
 
   const handleDateFilterApply = () => {
     if (selectedBuyer) {

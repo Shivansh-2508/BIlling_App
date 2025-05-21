@@ -35,7 +35,8 @@ export function InvoicePreview({ form }: PreviewProps) {
   const sgst = form.sgst ?? subtotal * 0.09;
   const total = form.total_amount ?? subtotal + cgst + sgst;
   
-  const fmt = (n: number) => n.toFixed(2);
+  const fmt = (n: number | string) => Number(n).toFixed(2);
+
   const fmtIndian = (n: number) => {
     return new Intl.NumberFormat('en-IN', {
       maximumFractionDigits: 2,

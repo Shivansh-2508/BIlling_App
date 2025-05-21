@@ -8,10 +8,18 @@ import BackToHome from '@/components/BackToHome';
 
 export default function CreateInvoicePage() {
   const router = useRouter();
-  const fmt = (n) => Number(n).toFixed(2);
+const fmt = (n: number | string) => Number(n).toFixed(2);
+
 
   // Buyer-related state
-  const [buyers, setBuyers] = useState([]);
+  type Buyer = {
+  _id: string;
+  name: string;
+  address: string;
+};
+
+const [buyers, setBuyers] = useState<Buyer[]>([]);
+
   const [selectedBuyerId, setSelectedBuyerId] = useState('');
   const [products, setProducts] = useState([]);
 
@@ -65,20 +73,22 @@ export default function CreateInvoicePage() {
   };
 
   // Handle buyer selection
-  const handleBuyerChange = (e) => {
-    const buyerId = e.target.value;
-    setSelectedBuyerId(buyerId);
-    setErrors(prev => ({ ...prev, buyer: '' }));
+const handleBuyerChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const buyerId = e.target.value;
+  setSelectedBuyerId(buyerId);
+  setErrors(prev => ({ ...prev, buyer: '' }));
 
-    const selected = buyers.find((b) => b._id === buyerId);
-    if (selected) {
-      setForm((prev) => ({
-        ...prev,
-        buyer_name: selected.name,
-        address: selected.address,
-      }));
-    }
-  };
+  const selected = buyers.find((b) => b._id === buyerId);
+  if (selected) {
+    setForm((prev) => ({
+      ...prev,
+      buyer_name: selected.name,
+      address: selected.address,
+    }));
+  }
+};
+
+
 
   // Handle item changes
   const handleItemChange = (index: number, field: string, value: any) => {
