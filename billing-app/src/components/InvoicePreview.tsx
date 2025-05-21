@@ -224,7 +224,7 @@ export function InvoicePreview({ form }: PreviewProps) {
         <div className="w-1/3 p-4">
           <p className="flex justify-between text-sm">
             <span>Total:</span>
-            <span>₹{fmtIndian(subtotal)}</span>
+            <span>₹{fmt(subtotal)}</span>
           </p>
           <p className="flex justify-between text-sm">
             <span>CGST: 9.0%</span>

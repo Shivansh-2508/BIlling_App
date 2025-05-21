@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { InvoicePreview } from '@/components/InvoicePreview'; // adjust path if needed
-import html2pdf from 'html2pdf.js'; // Install: npm i html2pdf.js
+
 import { Download, FileText, Eye, Printer } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 import CreateInvoiceButton from '@/components/CreateInvoiceButton';
@@ -109,81 +109,81 @@ export default function InvoiceListPage() {
     }
   }, [selectedInvoice]);
   
-  const downloadPDF = async () => {
-    if (!previewRef.current || !selectedInvoice) {
-      console.error('Preview reference or selected invoice not available');
-      return;
-    }
+  // const downloadPDF = async () => {
+  //   if (!previewRef.current || !selectedInvoice) {
+  //     console.error('Preview reference or selected invoice not available');
+  //     return;
+  //   }
     
-    try {
-      setPdfLoading(true);
+  //   try {
+  //     setPdfLoading(true);
       
-      // Clone the element to avoid modifying the visible DOM
-      const element = previewRef.current.cloneNode(true) as HTMLElement;
+  //     // Clone the element to avoid modifying the visible DOM
+  //     const element = previewRef.current.cloneNode(true) as HTMLElement;
       
-      // Make sure any images and styles are properly loaded
-      // Add specific PDF printing styles
-      const style = document.createElement('style');
-      style.textContent = `
-        @media print {
-          body, html, * {
-            -webkit-print-color-adjust: exact !important;
-            color-adjust: exact !important;
-          }
-          table { page-break-inside: avoid; }
-          tr { page-break-inside: avoid; }
-        }
-      `;
-      element.appendChild(style);
+  //     // Make sure any images and styles are properly loaded
+  //     // Add specific PDF printing styles
+  //     const style = document.createElement('style');
+  //     style.textContent = `
+  //       @media print {
+  //         body, html, * {
+  //           -webkit-print-color-adjust: exact !important;
+  //           color-adjust: exact !important;
+  //         }
+  //         table { page-break-inside: avoid; }
+  //         tr { page-break-inside: avoid; }
+  //       }
+  //     `;
+  //     element.appendChild(style);
       
-      // Configure html2pdf with optimal settings
-      const options = {
-        margin: 10,
-        filename: `Invoice_${selectedInvoice.invoice_no}.pdf`,
-        image: { type: 'jpeg', quality: 1.0 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true,
-          logging: true,
-          letterRendering: true
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true
-        }
-      };
+  //     // Configure html2pdf with optimal settings
+  //     const options = {
+  //       margin: 10,
+  //       filename: `Invoice_${selectedInvoice.invoice_no}.pdf`,
+  //       image: { type: 'jpeg', quality: 1.0 },
+  //       html2canvas: { 
+  //         scale: 2, 
+  //         useCORS: true,
+  //         logging: true,
+  //         letterRendering: true
+  //       },
+  //       jsPDF: { 
+  //         unit: 'mm', 
+  //         format: 'a4', 
+  //         orientation: 'portrait',
+  //         compress: true
+  //       }
+  //     };
       
-      // Wait a moment to ensure all content is fully rendered
-      setTimeout(async () => {
-        try {
-          const pdf = await html2pdf().from(element).set(options).outputPdf('blob');
-          const url = URL.createObjectURL(pdf);
+  //     // Wait a moment to ensure all content is fully rendered
+  //     setTimeout(async () => {
+  //       try {
+  //         const pdf = await html2pdf().from(element).set(options).outputPdf('blob');
+  //         const url = URL.createObjectURL(pdf);
           
-          // Create a temporary link and trigger download
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `Invoice_${selectedInvoice.invoice_no}.pdf`;
-          link.click();
+  //         // Create a temporary link and trigger download
+  //         const link = document.createElement('a');
+  //         link.href = url;
+  //         link.download = `Invoice_${selectedInvoice.invoice_no}.pdf`;
+  //         link.click();
           
-          // Clean up
-          URL.revokeObjectURL(url);
-          setPdfLoading(false);
-        } catch (err) {
-          console.error('Error generating PDF:', err);
-          alert('Failed to generate PDF. Please try again.');
-          setPdfLoading(false);
-          // Try alternative method as fallback
-          downloadPDFAlternative();
-        }
-      }, 500);
-    } catch (err) {
-      console.error('Error in PDF generation:', err);
-      alert('Failed to generate PDF. Please try again with Print View option.');
-      setPdfLoading(false);
-    }
-  };
+  //         // Clean up
+  //         URL.revokeObjectURL(url);
+  //         setPdfLoading(false);
+  //       } catch (err) {
+  //         console.error('Error generating PDF:', err);
+  //         alert('Failed to generate PDF. Please try again.');
+  //         setPdfLoading(false);
+  //         // Try alternative method as fallback
+  //         downloadPDFAlternative();
+  //       }
+  //     }, 500);
+  //   } catch (err) {
+  //     console.error('Error in PDF generation:', err);
+  //     alert('Failed to generate PDF. Please try again with Print View option.');
+  //     setPdfLoading(false);
+  //   }
+  // };
 
   // Alternative PDF generation approach using print
   const downloadPDFAlternative = () => {
