@@ -167,7 +167,7 @@ export function InvoicePreview({ form }: PreviewProps) {
                   <td className="border p-2">32151990</td>
                   <td className="border p-2">{item.product_name || 'Not specified'}</td>
                   <td className="border p-2 text-right">{item.packing_qty || 0}</td>
-                  <td className="border p-2 text-right">{totalQty}</td>
+                  <td className="border p-2 text-right"> {item.packing_qty} x {item.no_of_units ?? item.units ?? 0} = {totalQty}</td>
                   <td className="border p-2 text-right">{fmt(item.rate_per_kg || 0)}</td>
                   <td className="border p-2 text-right">{fmtIndian(amt)}</td>
                 </tr>

@@ -303,7 +303,7 @@ export default function InvoiceListPage() {
                     <Eye className="w-4 h-4 mr-2" /> Invoice Preview
                   </h2>
                   <div className="flex space-x-2">
-                    <button
+                    {/* <button
                       onClick={downloadPDF}
                       disabled={pdfLoading}
                       className={`flex items-center px-3 py-1 ${
@@ -320,13 +320,13 @@ export default function InvoiceListPage() {
                           <Download className="w-4 h-4 mr-1" /> Download PDF
                         </>
                       )}
-                    </button>
+                    </button> */}
                     <button
                       onClick={downloadPDFAlternative}
                       disabled={pdfLoading}
-                      className="flex items-center px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded"
+                      className="flex items-center px-3 py-1 bg-blue-600 hover:bg-gray-700 text-white text-sm rounded"
                     >
-                      <Printer className="w-4 h-4 mr-1" /> Print View
+                      <Printer className="w-4 h-4 mr-1" /> Download PDF
                     </button>
                   </div>
                 </div>

@@ -112,7 +112,7 @@ def delete_invoice(invoice_id):
 # GET: All buyers (for dropdown)
 @app.route("/buyers", methods=["GET"])
 def get_buyers():
-    all_buyers = list(buyers.find({}, {"_id": 1, "name": 1, "address": 1}))
+    all_buyers = list(buyers.find({}, {"_id": 1, "name": 1, "address": 1, "gstin": 1}))
     for buyer in all_buyers:
         buyer["_id"] = str(buyer["_id"])
     return jsonify(all_buyers)
@@ -135,11 +135,16 @@ def add_buyer():
     data = request.json
     name = data.get("name")
     address = data.get("address")
+    gstin = data.get("gstin", "")  # GST number, optional with empty default
 
     if not name or not address:
         return jsonify({"error": "Both name and address are required"}), 400
 
-    result = buyers.insert_one({"name": name, "address": address})
+    result = buyers.insert_one({
+        "name": name, 
+        "address": address,
+        "gstin": gstin
+    })
     return jsonify({"message": "Buyer added successfully", "id": str(result.inserted_id)}), 201
 
 # PUT: Update buyer
@@ -174,7 +179,13 @@ def delete_buyer(buyer_id):
 
 @app.route("/products", methods=["GET"])
 def get_products():
-    all_products = list(products.find({}, {"_id": 1, "name": 1, "default_packing_qty": 1, "default_rate_per_kg": 1}))
+    all_products = list(products.find({}, {
+        "_id": 1, 
+        "name": 1, 
+        "default_packing_qty": 1, 
+        "default_rate_per_kg": 1,
+        "hsn_code": 1
+    }))
     for product in all_products:
         product["_id"] = str(product["_id"])
     return jsonify(all_products)
@@ -196,6 +207,7 @@ def add_product():
     name = data.get("name")
     default_packing_qty = data.get("default_packing_qty", 0)
     default_rate_per_kg = data.get("default_rate_per_kg", 0)
+    hsn_code = data.get("hsn_code", "")  # HSN code, optional with empty default
 
     if not name:
         return jsonify({"error": "Product name is required"}), 400
@@ -203,7 +215,8 @@ def add_product():
     result = products.insert_one({
         "name": name,
         "default_packing_qty": default_packing_qty,
-        "default_rate_per_kg": default_rate_per_kg
+        "default_rate_per_kg": default_rate_per_kg,
+        "hsn_code": hsn_code
     })
     return jsonify({"message": "Product added successfully", "id": str(result.inserted_id)}), 201
 
@@ -234,7 +247,7 @@ def delete_product(product_id):
         return jsonify({"error": "Invalid product ID or server error"}), 400
 
 # --- Statement Routes ---
-
+# Optimized route with better date handling, error handling and performance
 @app.route('/statements/<buyer_id>', methods=['GET'])
 def get_buyer_statement(buyer_id):
     try:
@@ -242,6 +255,10 @@ def get_buyer_statement(buyer_id):
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         
+        # Validate buyer_id first
+        if not ObjectId.is_valid(buyer_id):
+            return jsonify({"error": "Invalid buyer ID format"}), 400
+            
         # First, get the buyer name from the ID
         buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
         if not buyer:
@@ -256,16 +273,16 @@ def get_buyer_statement(buyer_id):
         if start_date or end_date:
             date_query = {}
             if start_date:
-                # Convert to datetime and set to beginning of day
                 try:
+                    # Validate date format
                     start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
                     date_query['$gte'] = start_date
                 except ValueError:
                     return jsonify({"error": "Invalid start_date format. Use YYYY-MM-DD"}), 400
                     
             if end_date:
-                # Convert to datetime and set to end of day
                 try:
+                    # Validate date format
                     end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
                     date_query['$lte'] = end_date
                 except ValueError:
@@ -274,19 +291,62 @@ def get_buyer_statement(buyer_id):
             if date_query:
                 query['date'] = date_query
         
+        # Define projection to retrieve only needed fields for better performance
+        projection = {
+            "_id": 1,
+            "invoice_no": 1,
+            "date": 1,
+            "items": 1,
+            "total_amount": 1
+        }
+        
         # Then get invoices for this buyer with date filters
-        invoices_list = list(invoices.find(query))
+        invoices_list = list(invoices.find(query, projection))
+        
+        # Early return if no invoices found
+        if not invoices_list:
+            return jsonify({
+                'buyer': buyer_name,
+                'buyer_gstin': buyer.get('gstin', ''),
+                'invoice_count': 0,
+                'total_qty': 0,
+                'total_amount': 0,
+                'invoices': [],
+                'filter': {
+                    'start_date': start_date,
+                    'end_date': end_date
+                }
+            }), 200
         
         # Convert ObjectId to string for each invoice
         for inv in invoices_list:
             inv['_id'] = str(inv['_id'])
         
-        # Calculate totals
-        total_qty = sum(item.get('total_qty', 0) for inv in invoices_list for item in inv.get('items', []))
-        total_amount = sum(inv.get('total_amount', 0) for inv in invoices_list)
-
-        return jsonify({
+        # Calculate statement totals efficiently
+        total_qty = 0
+        total_amount = 0
+        
+        for inv in invoices_list:
+            # Add to total amount
+            total_amount += inv.get('total_amount', 0)
+            
+            # Process each item in the invoice to collect quantities
+            if 'items' in inv and isinstance(inv['items'], list):
+                for item in inv['items']:
+                    # Safely convert total_qty to a number if it's not already
+                    if 'total_qty' in item:
+                        try:
+                            if isinstance(item['total_qty'], str):
+                                item['total_qty'] = float(item['total_qty'])
+                            total_qty += float(item['total_qty'])
+                        except (ValueError, TypeError):
+                            # Skip invalid values
+                            continue
+        
+        # Create the response object
+        statement_data = {
             'buyer': buyer_name,
+            'buyer_gstin': buyer.get('gstin', ''),
             'invoice_count': len(invoices_list),
             'total_qty': total_qty,
             'total_amount': total_amount,
@@ -295,11 +355,18 @@ def get_buyer_statement(buyer_id):
                 'start_date': start_date,
                 'end_date': end_date
             }
-        }), 200
+        }
+        
+        return jsonify(statement_data), 200
+        
     except Exception as e:
-        print('Error in /statements/<buyer_id>:', e)
-        print(str(e))
+        # Log the full error for debugging
+        import traceback
+        print('Error in /statements/<buyer_id>:', str(e))
+        print(traceback.format_exc())
         return jsonify({'error': 'Internal Server Error'}), 500
+
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
