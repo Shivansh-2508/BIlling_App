@@ -9,8 +9,6 @@ import BackToHome from '@/components/BackToHome';
 export default function CreateInvoicePage() {
   const router = useRouter();
 const fmt = (n: number | string) => Number(n).toFixed(2);
-git
-
   // Buyer-related state
   const [buyers, setBuyers] = useState([]);
   const [selectedBuyerId, setSelectedBuyerId] = useState('');
