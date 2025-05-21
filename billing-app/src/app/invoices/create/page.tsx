@@ -37,8 +37,8 @@ export default function CreateInvoicePage() {
   // Fetch data on mount
   useEffect(() => {
     Promise.all([
-      fetch("http://localhost:5000/buyers").then(res => res.json()),
-      fetch("http://localhost:5000/products").then(res => res.json())
+      fetch("https://billing-app-onzk.onrender.com/buyers").then(res => res.json()),
+      fetch("https://billing-app-onzk.onrender.com/products").then(res => res.json())
     ])
     .then(([buyersData, productsData]) => {
       setBuyers(buyersData);
@@ -178,7 +178,7 @@ export default function CreateInvoicePage() {
         total_amount: totalAmount,
       };
 
-      const res = await fetch('http://localhost:5000/invoices', {
+      const res = await fetch('https://billing-app-onzk.onrender.com/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoicePayload),
