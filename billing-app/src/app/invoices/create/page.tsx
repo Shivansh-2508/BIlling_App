@@ -20,11 +20,12 @@ const [form, setForm] = useState({
   date: '',
   buyer_name: '',
   address: '',
-  gstin: '', // Add this line
+  gstin: '',
   items: [
-    { product_name: '', packing_qty: 0, no_of_units: 0, rate_per_kg: 0 },
+    { product_name: '', packing_qty: 0, no_of_units: 0, rate_per_kg: 0, hsn_code: '' },
   ],
 });
+
 
   // Error state
   const [errors, setErrors] = useState({
@@ -82,19 +83,22 @@ const handleBuyerChange = (e) => {
 };
 
   // Handle item changes
-  const handleItemChange = (index: number, field: string, value: any) => {
-    const updated = [...form.items];
-    updated[index][field] = field === 'product_name' ? value : Number(value);
-    
-    // Reset error for this item when a product is selected
-    if (field === 'product_name') {
-      const newErrors = [...errors.items];
-      newErrors[index] = '';
-      setErrors(prev => ({ ...prev, items: newErrors }));
-    }
+const handleItemChange = (index: number, field: string, value: any) => {
+  const updated = [...form.items];
 
-    setForm({ ...form, items: updated });
-  };
+  updated[index][field] = ['product_name', 'hsn_code'].includes(field)
+    ? value
+    : Number(value);
+
+  if (field === 'product_name') {
+    const newErrors = [...errors.items];
+    newErrors[index] = '';
+    setErrors(prev => ({ ...prev, items: newErrors }));
+  }
+
+  setForm({ ...form, items: updated });
+};
+
 
   // Add new item row
   const addItem = () => {
@@ -145,19 +149,21 @@ const handleBuyerChange = (e) => {
   };
 
   // Safe product selection handler
-  const handleProductSelection = (idx: number, value: string) => {
-    if (!value) {
-      handleItemChange(idx, 'product_name', '');
-      return;
-    }
-    
-    const selected = products.find(p => p.name === value);
-    if (selected) {
-      handleItemChange(idx, 'product_name', selected.name);
-      handleItemChange(idx, 'packing_qty', selected.default_packing_qty);
-      handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg);
-    }
-  };
+ const handleProductSelection = (idx: number, value: string) => {
+  if (!value) {
+    handleItemChange(idx, 'product_name', '');
+    return;
+  }
+
+  const selected = products.find(p => p.name === value);
+  if (selected) {
+    handleItemChange(idx, 'product_name', selected.name);
+    handleItemChange(idx, 'packing_qty', selected.default_packing_qty);
+    handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg);
+    handleItemChange(idx, 'hsn_code', selected.hsn_code); // <-- Add this
+  }
+};
+
 
   // Unified save invoice function (combines previous handleSubmit and handleSaveInvoice)
   const saveInvoice = async (e) => {
@@ -172,12 +178,13 @@ const handleBuyerChange = (e) => {
 
     try {
       const invoicePayload = {
-        ...form,
-        subtotal,
-        cgst,
-        sgst,
-        total_amount: totalAmount,
-      };
+            ...form,
+            subtotal,
+            cgst,
+            sgst,
+            total_amount: totalAmount,
+          };
+
 
       const res = await fetch('https://billing-app-onzk.onrender.com/invoices', {
         method: 'POST',
@@ -471,3 +478,4 @@ const handleBuyerChange = (e) => {
     </div>
   );
 }
+

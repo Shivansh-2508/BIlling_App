@@ -40,6 +40,7 @@ def get_invoices():
         "date": 1,
         "buyer_name": 1,
         "address": 1,
+        "gstin": 1,
         "items": 1,
         "subtotal": 1,
         "cgst": 1,
@@ -56,6 +57,10 @@ def get_invoice(invoice_id):
         invoice = invoices.find_one({"_id": ObjectId(invoice_id)})
         if not invoice:
             return jsonify({"error": "Invoice not found"}), 404
+        
+        # Debug: Check if GSTIN exists in retrieved invoice
+        print(f"Retrieved invoice {invoice_id}, GSTIN: {invoice.get('gstin', 'NOT FOUND')}")
+        
         return jsonify(convert_objectid(invoice))
     except Exception as e:
         print(f"Error fetching invoice {invoice_id}:", e)
@@ -66,17 +71,56 @@ def get_invoice(invoice_id):
 def add_invoice():
     try:
         data = request.get_json()
+        
+        # Debug: Print received data to check GSTIN
+        print("Received invoice data:", data)
+        print("GSTIN value:", data.get('gstin', 'NOT FOUND'))
 
-        # Optional: Add validation if needed
+        # Validate required fields - gstin should be optional
         required_fields = ['invoice_no', 'date', 'buyer_name', 'address', 'items', 'subtotal', 'cgst', 'sgst', 'total_amount']
+        
+        # Check for missing fields
+        missing_fields = []
         for field in required_fields:
-            if field not in data:
-                return jsonify({'error': f'Missing field: {field}'}), 400
+            if field not in data or data[field] is None:
+                missing_fields.append(field)
+        
+        if missing_fields:
+            return jsonify({'error': f'Missing fields: {", ".join(missing_fields)}'}), 400
 
-        result = invoices.insert_one(data)
+        # Ensure gstin field exists, even if empty
+        if 'gstin' not in data:
+            data['gstin'] = ''
+            print("GSTIN field was missing, setting to empty string")
+        
+        # Additional validation for GSTIN (optional)
+        gstin_value = data.get('gstin', '')
+        if gstin_value and len(gstin_value) != 15:
+            print(f"Warning: GSTIN {gstin_value} is not 15 characters long")
+
+        # Ensure all expected fields are present for consistency
+        invoice_data = {
+            'invoice_no': data['invoice_no'],
+            'date': data['date'],
+            'buyer_name': data['buyer_name'],
+            'address': data['address'],
+            'gstin': data.get('gstin', ''),  # Default to empty string if not provided
+            'items': data['items'],
+            'subtotal': data['subtotal'],
+            'cgst': data['cgst'],
+            'sgst': data['sgst'],
+            'total_amount': data['total_amount']
+        }
+
+        result = invoices.insert_one(invoice_data)
+        print(f"Invoice saved with ID: {result.inserted_id}")
+        
         return jsonify({'message': 'Invoice saved', 'id': str(result.inserted_id)}), 201
+        
     except Exception as e:
         print('Error in /invoices:', e)
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Internal server error'}), 500
 
 # PUT: Update invoice
@@ -84,6 +128,11 @@ def add_invoice():
 def update_invoice(invoice_id):
     try:
         data = request.get_json()
+        
+        # Ensure gstin field exists in update data
+        if 'gstin' not in data:
+            data['gstin'] = ''
+            
         result = invoices.update_one(
             {"_id": ObjectId(invoice_id)},
             {"$set": data}
@@ -115,6 +164,9 @@ def get_buyers():
     all_buyers = list(buyers.find({}, {"_id": 1, "name": 1, "address": 1, "gstin": 1}))
     for buyer in all_buyers:
         buyer["_id"] = str(buyer["_id"])
+        # Ensure gstin field exists
+        if "gstin" not in buyer:
+            buyer["gstin"] = ""
     return jsonify(all_buyers)
 
 # GET: Single buyer by ID
@@ -124,6 +176,11 @@ def get_buyer(buyer_id):
         buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
         if not buyer:
             return jsonify({"error": "Buyer not found"}), 404
+        
+        # Ensure gstin field exists
+        if "gstin" not in buyer:
+            buyer["gstin"] = ""
+            
         return jsonify(convert_objectid(buyer))
     except Exception as e:
         print(f"Error fetching buyer {buyer_id}:", e)
@@ -140,11 +197,13 @@ def add_buyer():
     if not name or not address:
         return jsonify({"error": "Both name and address are required"}), 400
 
-    result = buyers.insert_one({
+    buyer_data = {
         "name": name, 
         "address": address,
         "gstin": gstin
-    })
+    }
+
+    result = buyers.insert_one(buyer_data)
     return jsonify({"message": "Buyer added successfully", "id": str(result.inserted_id)}), 201
 
 # PUT: Update buyer
@@ -152,6 +211,11 @@ def add_buyer():
 def update_buyer(buyer_id):
     try:
         data = request.get_json()
+        
+        # Ensure gstin field exists in update data
+        if 'gstin' not in data:
+            data['gstin'] = ''
+            
         result = buyers.update_one(
             {"_id": ObjectId(buyer_id)},
             {"$set": data}
@@ -188,6 +252,9 @@ def get_products():
     }))
     for product in all_products:
         product["_id"] = str(product["_id"])
+        # Ensure hsn_code field exists
+        if "hsn_code" not in product:
+            product["hsn_code"] = ""
     return jsonify(all_products)
 
 @app.route("/products/<product_id>", methods=["GET"])
@@ -196,6 +263,11 @@ def get_product(product_id):
         product = products.find_one({"_id": ObjectId(product_id)})
         if not product:
             return jsonify({"error": "Product not found"}), 404
+        
+        # Ensure hsn_code field exists
+        if "hsn_code" not in product:
+            product["hsn_code"] = ""
+            
         return jsonify(convert_objectid(product))
     except Exception as e:
         print(f"Error fetching product {product_id}:", e)
@@ -212,18 +284,25 @@ def add_product():
     if not name:
         return jsonify({"error": "Product name is required"}), 400
 
-    result = products.insert_one({
+    product_data = {
         "name": name,
         "default_packing_qty": default_packing_qty,
         "default_rate_per_kg": default_rate_per_kg,
         "hsn_code": hsn_code
-    })
+    }
+
+    result = products.insert_one(product_data)
     return jsonify({"message": "Product added successfully", "id": str(result.inserted_id)}), 201
 
 @app.route('/products/<product_id>', methods=['PUT'])
 def update_product(product_id):
     try:
         data = request.get_json()
+        
+        # Ensure hsn_code field exists in update data
+        if 'hsn_code' not in data:
+            data['hsn_code'] = ''
+            
         result = products.update_one(
             {"_id": ObjectId(product_id)},
             {"$set": data}
@@ -245,6 +324,20 @@ def delete_product(product_id):
     except Exception as e:
         print(f"Error deleting product {product_id}:", e)
         return jsonify({"error": "Invalid product ID or server error"}), 400
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # --- Statement Routes ---
 # Optimized route with better date handling, error handling and performance
