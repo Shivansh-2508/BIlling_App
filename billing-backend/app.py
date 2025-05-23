@@ -172,6 +172,7 @@ def get_products():
         "name": 1, 
         "stock": 1 
     }))
+    print(all_products) 
     for product in all_products:
         product["_id"] = str(product["_id"])
     return jsonify(all_products)
