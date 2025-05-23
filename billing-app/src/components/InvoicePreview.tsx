@@ -14,6 +14,7 @@ interface PreviewProps {
     date: string;
     buyer_name: string;
     address: string;
+    gstin: string; // Add this line
     items: Item[];
     subtotal?: number;
     cgst?: number;
@@ -21,7 +22,6 @@ interface PreviewProps {
     total_amount?: number;
   };
 }
-
 export function InvoicePreview({ form }: PreviewProps) {
   const { invoice_no, date, buyer_name, address, items } = form;
   
@@ -121,12 +121,12 @@ export function InvoicePreview({ form }: PreviewProps) {
           <p className="text-sm"><strong>Challan Date:</strong> {challDate}</p>
         </div>
         
-        <div>
-          <p className="text-sm"><strong>M/s:</strong> {buyer_name || 'No buyer selected'}</p>
-          <p className="text-sm">{address || ''}</p>
-          <p className="text-sm"><strong>GSTIN:</strong> -</p>
-          <p className="text-sm"><strong>State:</strong> MAHARASHTRA <strong>Code:</strong> 27</p>
-        </div>
+       <div>
+        <p className="text-sm"><strong>M/s:</strong> {buyer_name || 'No buyer selected'}</p>
+        <p className="text-sm">{address || ''}</p>
+        <p className="text-sm"><strong>GSTIN:</strong> {form.gstin || '-'}</p> {/* Update this line */}
+        <p className="text-sm"><strong>State:</strong> MAHARASHTRA <strong>Code:</strong> 27</p>
+      </div>
       </div>
       
       {/* Transport Info */}
