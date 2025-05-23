@@ -31,7 +31,6 @@ def convert_objectid(doc):
 
 # --- Invoice Routes ---
 
-# GET: All invoices
 @app.route("/invoices", methods=["GET"])
 def get_invoices():
     all_invoices = list(invoices.find({}, {
@@ -49,7 +48,6 @@ def get_invoices():
     all_invoices = [convert_objectid(inv) for inv in all_invoices]
     return jsonify(all_invoices)
 
-# GET: Single invoice by ID
 @app.route("/invoices/<invoice_id>", methods=["GET"])
 def get_invoice(invoice_id):
     try:
@@ -61,13 +59,10 @@ def get_invoice(invoice_id):
         print(f"Error fetching invoice {invoice_id}:", e)
         return jsonify({"error": "Invalid invoice ID or server error"}), 400
 
-# POST: Create new invoice
 @app.route('/invoices', methods=['POST'])
 def add_invoice():
     try:
         data = request.get_json()
-
-        # Optional: Add validation if needed
         required_fields = ['invoice_no', 'date', 'buyer_name', 'address', 'items', 'subtotal', 'cgst', 'sgst', 'total_amount']
         for field in required_fields:
             if field not in data:
@@ -79,7 +74,6 @@ def add_invoice():
         print('Error in /invoices:', e)
         return jsonify({'error': 'Internal server error'}), 500
 
-# PUT: Update invoice
 @app.route('/invoices/<invoice_id>', methods=['PUT'])
 def update_invoice(invoice_id):
     try:
@@ -95,7 +89,6 @@ def update_invoice(invoice_id):
         print(f"Error updating invoice {invoice_id}:", e)
         return jsonify({"error": "Invalid invoice ID or server error"}), 400
 
-# DELETE: Delete invoice
 @app.route('/invoices/<invoice_id>', methods=['DELETE'])
 def delete_invoice(invoice_id):
     try:
@@ -109,7 +102,6 @@ def delete_invoice(invoice_id):
 
 # --- Buyer Routes ---
 
-# GET: All buyers (for dropdown)
 @app.route("/buyers", methods=["GET"])
 def get_buyers():
     all_buyers = list(buyers.find({}, {"_id": 1, "name": 1, "address": 1, "gstin": 1}))
@@ -117,7 +109,6 @@ def get_buyers():
         buyer["_id"] = str(buyer["_id"])
     return jsonify(all_buyers)
 
-# GET: Single buyer by ID
 @app.route("/buyers/<buyer_id>", methods=["GET"])
 def get_buyer(buyer_id):
     try:
@@ -129,13 +120,12 @@ def get_buyer(buyer_id):
         print(f"Error fetching buyer {buyer_id}:", e)
         return jsonify({"error": "Invalid buyer ID or server error"}), 400
 
-# POST: Add new buyer (admin use)
 @app.route("/buyers", methods=["POST"])
 def add_buyer():
     data = request.json
     name = data.get("name")
     address = data.get("address")
-    gstin = data.get("gstin", "")  # GST number, optional with empty default
+    gstin = data.get("gstin", "")
 
     if not name or not address:
         return jsonify({"error": "Both name and address are required"}), 400
@@ -147,7 +137,6 @@ def add_buyer():
     })
     return jsonify({"message": "Buyer added successfully", "id": str(result.inserted_id)}), 201
 
-# PUT: Update buyer
 @app.route('/buyers/<buyer_id>', methods=['PUT'])
 def update_buyer(buyer_id):
     try:
@@ -163,7 +152,6 @@ def update_buyer(buyer_id):
         print(f"Error updating buyer {buyer_id}:", e)
         return jsonify({"error": "Invalid buyer ID or server error"}), 400
 
-# DELETE: Delete buyer
 @app.route('/buyers/<buyer_id>', methods=['DELETE'])
 def delete_buyer(buyer_id):
     try:
@@ -182,41 +170,24 @@ def get_products():
     all_products = list(products.find({}, {
         "_id": 1, 
         "name": 1, 
-        "default_packing_qty": 1, 
-        "default_rate_per_kg": 1,
-        "hsn_code": 1
+        "stock": 1 
     }))
     for product in all_products:
         product["_id"] = str(product["_id"])
     return jsonify(all_products)
 
-@app.route("/products/<product_id>", methods=["GET"])
-def get_product(product_id):
-    try:
-        product = products.find_one({"_id": ObjectId(product_id)})
-        if not product:
-            return jsonify({"error": "Product not found"}), 404
-        return jsonify(convert_objectid(product))
-    except Exception as e:
-        print(f"Error fetching product {product_id}:", e)
-        return jsonify({"error": "Invalid product ID or server error"}), 400
-
 @app.route("/products", methods=["POST"])
 def add_product():
     data = request.json
     name = data.get("name")
-    default_packing_qty = data.get("default_packing_qty", 0)
-    default_rate_per_kg = data.get("default_rate_per_kg", 0)
-    hsn_code = data.get("hsn_code", "")  # HSN code, optional with empty default
+    stock = data.get("stock", 0)
 
     if not name:
         return jsonify({"error": "Product name is required"}), 400
 
     result = products.insert_one({
         "name": name,
-        "default_packing_qty": default_packing_qty,
-        "default_rate_per_kg": default_rate_per_kg,
-        "hsn_code": hsn_code
+        "stock": stock
     })
     return jsonify({"message": "Product added successfully", "id": str(result.inserted_id)}), 201
 
@@ -247,34 +218,27 @@ def delete_product(product_id):
         return jsonify({"error": "Invalid product ID or server error"}), 400
 
 # --- Statement Routes ---
-# Optimized route with better date handling, error handling and performance
+
 @app.route('/statements/<buyer_id>', methods=['GET'])
 def get_buyer_statement(buyer_id):
     try:
-        # Get date filter parameters
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
         
-        # Validate buyer_id first
         if not ObjectId.is_valid(buyer_id):
             return jsonify({"error": "Invalid buyer ID format"}), 400
             
-        # First, get the buyer name from the ID
         buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
         if not buyer:
             return jsonify({"error": "Buyer not found"}), 404
         
         buyer_name = buyer["name"]
-        
-        # Build query for invoices
         query = {'buyer_name': buyer_name}
         
-        # Add date filtering if provided
         if start_date or end_date:
             date_query = {}
             if start_date:
                 try:
-                    # Validate date format
                     start_date_obj = datetime.strptime(start_date, '%Y-%m-%d')
                     date_query['$gte'] = start_date
                 except ValueError:
@@ -282,7 +246,6 @@ def get_buyer_statement(buyer_id):
                     
             if end_date:
                 try:
-                    # Validate date format
                     end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
                     date_query['$lte'] = end_date
                 except ValueError:
@@ -291,7 +254,6 @@ def get_buyer_statement(buyer_id):
             if date_query:
                 query['date'] = date_query
         
-        # Define projection to retrieve only needed fields for better performance
         projection = {
             "_id": 1,
             "invoice_no": 1,
@@ -300,10 +262,8 @@ def get_buyer_statement(buyer_id):
             "total_amount": 1
         }
         
-        # Then get invoices for this buyer with date filters
         invoices_list = list(invoices.find(query, projection))
         
-        # Early return if no invoices found
         if not invoices_list:
             return jsonify({
                 'buyer': buyer_name,
@@ -318,32 +278,24 @@ def get_buyer_statement(buyer_id):
                 }
             }), 200
         
-        # Convert ObjectId to string for each invoice
         for inv in invoices_list:
             inv['_id'] = str(inv['_id'])
         
-        # Calculate statement totals efficiently
         total_qty = 0
         total_amount = 0
         
         for inv in invoices_list:
-            # Add to total amount
             total_amount += inv.get('total_amount', 0)
-            
-            # Process each item in the invoice to collect quantities
             if 'items' in inv and isinstance(inv['items'], list):
                 for item in inv['items']:
-                    # Safely convert total_qty to a number if it's not already
                     if 'total_qty' in item:
                         try:
                             if isinstance(item['total_qty'], str):
                                 item['total_qty'] = float(item['total_qty'])
                             total_qty += float(item['total_qty'])
                         except (ValueError, TypeError):
-                            # Skip invalid values
                             continue
         
-        # Create the response object
         statement_data = {
             'buyer': buyer_name,
             'buyer_gstin': buyer.get('gstin', ''),
@@ -360,13 +312,10 @@ def get_buyer_statement(buyer_id):
         return jsonify(statement_data), 200
         
     except Exception as e:
-        # Log the full error for debugging
         import traceback
         print('Error in /statements/<buyer_id>:', str(e))
         print(traceback.format_exc())
         return jsonify({'error': 'Internal Server Error'}), 500
-
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

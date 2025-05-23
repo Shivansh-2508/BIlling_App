@@ -6,6 +6,7 @@ import { InvoicePreview } from '@/components/InvoicePreview'; // adjust path if 
 import { Download, FileText, Eye, Printer } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 import CreateInvoiceButton from '@/components/CreateInvoiceButton';
+import UpdateStockButton from "@/components/UpdateStockButton";
 
 // Item structure - matching what's used in CreateInvoicePage
 interface Item {
