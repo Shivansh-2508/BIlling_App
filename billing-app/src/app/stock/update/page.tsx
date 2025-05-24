@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useEffect, useState } from "react";
 import {
   Package,
@@ -36,30 +36,31 @@ export default function StockCRUDPage() {
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
- const fetchProducts = async () => {
-  setLoading(true);
-  setError("");
-  try {
-    const res = await fetch(`${API_BASE}/products`);
-    if (!res.ok) throw new Error("Failed to fetch products.");
-    const data = await res.json();
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/products`);
+      if (!res.ok) throw new Error("Failed to fetch products.");
+      const data = await res.json();
 
-    // Debug: Log the fetched products
-    console.log("Fetched products:", data);
+      // Debug: Log the fetched products
+      console.log("Fetched products:", data);
 
-    const processedData = data.map((product: any) => ({
-  _id: product._id,
-  name: product.name,
-  stock: parseInt(product.stock) || 0,
-}));
+      const processedData = data.map((product: any) => ({
+        _id: product._id,
+        name: product.name,
+        stock: parseInt(product.stock) || 0,
+      }));
 
-    setProducts(processedData);
-  } catch (err) {
-    console.error("Error fetching products:", err);
-    setError("Failed to load products.");
-  }
-  setLoading(false);
-};
+      setProducts(processedData);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      setError("Failed to load products.");
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     fetchProducts();
   }, []);
@@ -85,7 +86,7 @@ export default function StockCRUDPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newProduct.name,
-          stock: Number(newProduct.stock) || 0
+          stock: Number(newProduct.stock) || 0,
         }),
       });
       if (!res.ok) throw new Error("Failed to create product.");
@@ -100,7 +101,7 @@ export default function StockCRUDPage() {
 
   const startEdit = (product: Product) => {
     setEditId(product._id);
-    setEditProduct({ name: product.name, stock: Number(product.stock) || 0 });
+    setEditProduct({ name: product.name, stock: 0 }); // Default stock to 0 for editing
   };
 
   const cancelEdit = () => {
@@ -108,56 +109,49 @@ export default function StockCRUDPage() {
     setEditProduct({ name: "", stock: 0 });
   };
 
- const handleEditSave = async (id: string) => {
-  setSaving(true);
-  setError("");
-  setSuccess("");
+  const handleEditSave = async (id: string) => {
+    setSaving(true);
+    setError("");
+    setSuccess("");
 
-  try {
-    if (!editProduct.name.trim()) {
-      setError("Product name cannot be empty.");
-      setSaving(false);
-      return;
+    try {
+      if (!editProduct.name.trim()) {
+        setError("Product name cannot be empty.");
+        setSaving(false);
+        return;
+      }
+
+      // Find the current product from the products state
+      const currentProduct = products.find((product) => product._id === id);
+      if (!currentProduct) {
+        throw new Error("Product not found.");
+      }
+
+      // Calculate the new stock value
+      const updatedStock = currentProduct.stock + editProduct.stock;
+
+      // Send the updated stock to the backend
+      const res = await fetch(`${API_BASE}/products/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editProduct.name.trim(), stock: updatedStock }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update product.");
+
+      setSuccess("Product updated successfully!");
+      setEditId(null);
+      setEditProduct({ name: "", stock: 0 });
+
+      // Refresh the product list
+      await fetchProducts();
+    } catch (err) {
+      console.error("Error updating product:", err);
+      setError("Failed to update product.");
     }
 
-    // Send the new stock value directly (not adding to current stock)
-    const updatedStock = parseInt(editProduct.stock.toString()) || 0;
-
-    if (updatedStock < 0) {
-      setError("Stock cannot be negative.");
-      setSaving(false);
-      return;
-    }
-    
- console.log("Updating product with:", { 
-  name: editProduct.name.trim(), 
-  stock: updatedStock 
-});
-
-    const res = await fetch(`${API_BASE}/products/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        name: editProduct.name.trim(), 
-        stock: updatedStock 
-      }),
-    });
-
-    if (!res.ok) throw new Error("Failed to update product.");
-
-    setSuccess("Product updated successfully!");
-    setEditId(null);
-    setEditProduct({ name: "", stock: 0 });
-
-    // Refresh the product list
-    await fetchProducts();
-  } catch (err) {
-    console.error("Error updating product:", err);
-    setError("Failed to update product.");
-  }
-
-  setSaving(false);
-};
+    setSaving(false);
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
@@ -175,21 +169,6 @@ export default function StockCRUDPage() {
       setError("Failed to delete product.");
     }
     setSaving(false);
-  };
-
-  // Helper function to format stock display
-  const formatStock = (stock: number) => {
-    const stockValue = Number(stock);
-    if (isNaN(stockValue)) return "0";
-    return stockValue.toString();
-  };
-
-  // Helper function to get stock status color
-  const getStockStatusColor = (stock: number) => {
-    const stockValue = Number(stock) || 0;
-    if (stockValue === 0) return "text-red-600 bg-red-50";
-    if (stockValue < 10) return "text-orange-600 bg-orange-50";
-    return "text-green-600 bg-green-50";
   };
 
   return (
@@ -235,7 +214,7 @@ export default function StockCRUDPage() {
                 type="text"
                 required
                 value={newProduct.name}
-                onChange={e => setNewProduct({ ...newProduct, name: e.target.value })}
+                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                 className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500"
                 placeholder="Enter product name"
               />
@@ -246,9 +225,8 @@ export default function StockCRUDPage() {
                 <input
                   type="number"
                   required
-                  min="0"
                   value={newProduct.stock}
-                  onChange={e => setNewProduct({ ...newProduct, stock: Number(e.target.value) || 0 })}
+                  onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) || 0 })}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500"
                   placeholder="0"
                 />
@@ -287,7 +265,7 @@ export default function StockCRUDPage() {
                 <input
                   type="text"
                   value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search products..."
                   className="pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all w-full sm:w-64 text-sm sm:text-base placeholder:text-gray-500"
                 />
@@ -326,26 +304,24 @@ export default function StockCRUDPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredProducts.map(product =>
+                  {filteredProducts.map((product) =>
                     editId === product._id ? (
                       <tr key={product._id} className="bg-blue-50">
-                        
                         <td className="px-4 sm:px-6 py-3 sm:py-4">
-
                           <input
                             type="text"
                             value={editProduct.name}
-                            onChange={e => setEditProduct({ ...editProduct, name: e.target.value })}
+                            onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black"
                           />
                         </td>
                         <td className="px-4 sm:px-6 py-3 sm:py-4">
                           <input
                             type="number"
-                            min="0"
                             value={editProduct.stock}
-                            onChange={e => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
-                            className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black"/>
+                            onChange={(e) => setEditProduct({ ...editProduct, stock: parseInt(e.target.value) || 0 })}
+                            className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black"
+                          />
                         </td>
                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                           <div className="flex justify-end gap-2">
@@ -376,10 +352,10 @@ export default function StockCRUDPage() {
                           <div className="font-medium text-gray-900 text-sm sm:text-base">{product.name}</div>
                         </td>
                         <td className="px-4 sm:px-6 py-3 sm:py-4">
-  <div className="text-gray-900 font-medium text-sm sm:text-base">
-    {parseInt(product.stock.toString()) || 0}
-  </div>
-</td>
+                          <div className="text-gray-900 font-medium text-sm sm:text-base">
+                            {parseInt(product.stock.toString()) || 0}
+                          </div>
+                        </td>
                         <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                           <div className="flex justify-end gap-1 sm:gap-2">
                             <button
