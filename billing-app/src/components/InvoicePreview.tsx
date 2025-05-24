@@ -119,200 +119,190 @@ export function InvoicePreview({ form }: PreviewProps) {
   const challNo = invoice_no || 'Not specified';
 
   return (
-    <div className="w-full border bg-white text-black print:text-black" >
-      {/* Header */}
-      <div className="border-b p-4">
-        <div className="flex flex-col items-center mb-2">
-          <h1 className="text-3xl font-bold text-center">SHIVANSH INKS</h1>
-          <p className="text-sm text-center">ALL KINDS OF FLEXO & ROTO PTG INKS</p>
-          <p className="text-xs text-center mt-1">
-            Gala no C/9, Gala no 1, Parasnath Complex, Mankoli Dapoda Road, Bhiwandi, Thane 421302
-          </p>
-          <p className="text-xs text-center">GSTIN: 27AACPA8313L1ZU</p>
-        </div>
-        
-        <div className="text-center text-xl font-bold border-t py-2 mt-2">
-          TAX INVOICE
-        </div>
-      </div>
-      
-      {/* Invoice Details and Customer Info */}
-      <div className="grid grid-cols-2 gap-4 p-4 border-b">
-        <div>
-          <p className="text-xs"><strong>Invoice No:</strong> {invoice_no || 'Not specified'}</p>
-          <p className="text-xs"><strong>Invoice Date:</strong> {invoiceDate}</p>
-          <p className="text-xs"><strong>Challan No:</strong> {challNo}</p>
-          <p className="text-xs"><strong>Challan Date:</strong> {challDate}</p>
-        </div>
-        
-        <div>
-          <p className="text-xs"><strong>{buyer_name || 'No buyer selected'}</strong> </p>
-          <p className="text-xs">{address || ''}</p>
-          {/* Enhanced GSTIN display with better formatting and debugging */}
-          <p className="text-xs">
-            <strong>GSTIN:</strong> 
-            <span 
-              className="ml-1" 
-              style={{ 
-                color: (!gstin || gstin.toString().trim() === '') ? '#999' : 'inherit',
-                fontStyle: (!gstin || gstin.toString().trim() === '') ? 'italic' : 'normal'
-              }}
-            >
-              {formatGSTIN(gstin)}
-            </span>
-          </p>
-          <p className="text-xs"><strong>State:</strong> MAHARASHTRA <strong>Code:</strong> 27</p>
-        </div>
-      </div>
-      
-      {/* Transport Info */}
-      <div className="grid grid-cols-3 gap-4 text-xs p-1 border-b">
-        <div>
-          <p><strong>Transporter:</strong></p>
-        </div>
-        <div>
-          <p><strong>Vehicle No:</strong></p>
-        </div>
-        <div>
-          <p><strong>L/R or R/R No:</strong></p>
-        </div>
-      </div>
-      
-      {/* Items Table */}
-      <div className="overflow-hidden border-b">
-        <table className="w-full" style={{ fontSize: '11px' }}>
-          <thead>
-            <tr className="bg-gray-100 border-y">
-              <th className="border p-1 text-left" style={{ width: '8%' }}>Sr.No.</th>
-              
-              <th className="border p-1 text-left" style={{ width: '35%' }}>Description Of Goods</th>
-              <th className="border p-1 text-left" style={{ width: '12%' }}>HSN Code</th>
+  <div className="w-full border font-sans bg-white text-black print:text-black">
+    {/* Header */}
+    <div className="border-b p-4 font-serif">
+  <div className="flex flex-col items-center">
+    <h1 className="text-3xl font-extrabold tracking-wide text-center font-serif">
+      SHIVANSH INKS
+    </h1>
+    <p className="text-sm text-gray-700 tracking-wider text-center uppercase">
+      All Kinds of Flexo & Roto PTG Inks
+    </p>
+    <p className="text-xs text-gray-600 text-center mt-1">
+      Gala no C/9, Gala no 1, Parasnath Complex, Mankoli Dapoda Road, Bhiwandi, Thane 421302
+    </p>
+    <p className="text-xs text-gray-600 text-center tracking-wider">
+      GSTIN: <span className="font-mono font-medium">27AREPK4801E1Z5</span>
+    </p>
+  </div>
 
-              <th className="border p-1 text-right" style={{ width: '10%' }}>Quantity</th>
-              <th className="border p-1 text-right" style={{ width: '15%' }}>KG</th>
-              <th className="border p-1 text-right" style={{ width: '10%' }}>PRICE</th>
-              <th className="border p-1 text-right" style={{ width: '10%' }}>Amount</th>
+  <div className="text-center text-xl font-bold border-t pt-3 mt-2 tracking-wider">
+    TAX INVOICE
+  </div>
+</div>
+
+
+    {/* Invoice Details and Customer Info */}
+    <div className="grid grid-cols-3 gap-4 p-4  border-b text-xs">
+     
+      <div className='col-span-2 border-r'>
+        <p><strong>{buyer_name || 'No buyer selected'}</strong></p>
+        <p><strong>Address:  </strong> {address || ''}</p>
+        <p>
+          <strong>GSTIN:  </strong>
+          <span
+            className="ml-1"
+            style={{
+              color: !gstin?.trim() ? '#999' : 'inherit',
+              fontStyle: !gstin?.trim() ? 'italic' : 'normal',
+            }}
+          >
+            {formatGSTIN(gstin)}
+          </span>
+        </p>
+        <p><strong>State:  </strong> MAHARASHTRA <strong>Code:  </strong> 27</p>
+      </div>
+
+       <div>
+        <p><strong>Invoice No:</strong> {invoice_no || 'Not specified'}</p>
+        <p><strong>Invoice Date:</strong> {invoiceDate}</p>
+        <p><strong>Challan No:</strong> {challNo}</p>
+        <p><strong>Challan Date:</strong> {challDate}</p>
+      </div>
+    </div>
+
+    {/* Transport Info */}
+    <div className="grid grid-cols-3 gap-4 text-xs p-1 border-b">
+      <p><strong>Transporter:</strong></p>
+      <p><strong>Vehicle No:</strong></p>
+      <p><strong>L/R or R/R No:</strong></p>
+    </div>
+
+    {/* Items Table */}
+    <div className="overflow-hidden font-sans border-b">
+      <table className="w-full text-[11px]">
+        <thead>
+          <tr className="bg-gray-100 border-y">
+            <th className="border p-1 text-left w-[8%]">Sr.No.</th>
+            <th className="border p-1 text-left w-[35%]">Description Of Goods</th>
+            <th className="border p-1 text-left w-[12%]">HSN Code</th>
+            <th className="border p-1 text-right w-[10%]">Quantity</th>
+            <th className="border p-1 text-right w-[15%]">KG</th>
+            <th className="border p-1 text-right w-[10%]">PRICE</th>
+            <th className="border p-1 text-right w-[10%]">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items?.length > 0 ? items.map((item, idx) => {
+            const units = item.no_of_units ?? item.units ?? 0;
+            const totalQty = item.packing_qty * units;
+            const amt = totalQty * item.rate_per_kg;
+            return (
+              <tr key={idx} className="border-b">
+                <td className="border p-1 text-center">{idx + 1}</td>
+                <td className="border p-1">{item.product_name || 'Not specified'}</td>
+                <td className="border p-1 text-center">{item.hsn_code || ''}</td>
+                <td className="border p-1 text-right">{item.packing_qty || 0}</td>
+                <td className="border p-1 text-right">{item.packing_qty} x {units} = {totalQty}</td>
+                <td className="border p-1 text-right">{fmt(item.rate_per_kg || 0)}</td>
+                <td className="border p-1 text-right">{fmtIndian(amt)}</td>
+              </tr>
+            );
+          }) : (
+            <tr className="border-b">
+              <td className="border p-1 text-center" colSpan={7}>No items found</td>
             </tr>
-          </thead>
-          <tbody>
-            {items && items.length > 0 ? items.map((item, idx) => {
-              const units = item.no_of_units ?? item.units ?? 0;
-              const totalQty = item.packing_qty * units;
-              const amt = totalQty * item.rate_per_kg;
-              
-              return (
-                <tr key={idx} className="border-b">
-                  <td className="border p-1 text-center">{idx + 1}</td>
-                 
-                  <td className="border p-1">{item.product_name || 'Not specified'}</td>
-                   <td className="border p-1 text-center">{item.hsn_code || ''}</td>
-                   
-                  <td className="border p-1 text-right">{item.packing_qty || 0}</td>
-                  <td className="border p-1 text-right">{item.packing_qty} x {item.no_of_units ?? item.units ?? 0} = {totalQty}</td>
-                  <td className="border p-1 text-right">{fmt(item.rate_per_kg || 0)}</td>
-                  <td className="border p-1 text-right">{fmtIndian(amt)}</td>
-                </tr>
-              );
-            }) : (
-              <tr className="border-b">
-                <td className="border p-1 text-center" colSpan={7}>No items found</td>
-              </tr>
-            )}
-            
-            {/* Fill remaining rows to maintain consistent height */}
-            {items && Array(Math.max(0, 8 - items.length)).fill(0).map((_, idx) => (
-              <tr key={`empty-${idx}`} className="border-b" style={{ height: '10px' }}>
-                <td className="border p-1">&nbsp;</td>
-                <td className="border p-1">&nbsp;</td>
-                <td className="border p-1">&nbsp;</td>
-                <td className="border p-1">&nbsp;</td>
-                <td className="border p-1">&nbsp;</td>
-                <td className="border p-1">&nbsp;</td>
-                <td className="border p-1">&nbsp;</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      {/* Totals Section */}
-      <div className="flex border-b">
-        <div className="w-2/3 p-4 border-r">
-          <p className="text-xs font-semibold">Invoice Amount In Words:</p>
-          <p className="text-xs">{numberToWords(total)}</p>
-          
-          <div className="mt-2">
-            <p className="text-xs font-semibold">GST Amount In Words:</p>
-            <p className="text-xs">{numberToWords(cgst + sgst)}</p>
-          </div>
-          
-          <div className="mt-2 text-xs">
-            <p className="font-semibold">Payment Terms</p>
-            <p>IMMEDIATE</p>
-          </div>
-          
-          <div className="mt-2 text-xs">
-            <ol className="list-decimal pl-4">
-              <li>Our responsibility ceases as soon as the goods leave our godown.</li>
-              <li>Payment to be made by cheque in favor of SHIVANSH INKS</li>
-              <li>Interest will be charged @ 36% after Due Date.</li>
-              <li>Only our official receipt will be recognized.</li>
-              <li>Subject to jurisdiction only. E.&O.E.</li>
-            </ol>
-          </div>
+          )}
+
+          {Array(Math.max(0, 8 - (items?.length || 0))).fill(0).map((_, idx) => (
+            <tr key={`empty-${idx}`} className="border-b h-[10px]">
+              {Array(7).fill(0).map((__, i) => (
+                <td key={i} className="border p-1">&nbsp;</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Totals Section */}
+    <div className="flex border-b text-xs">
+      <div className="w-2/3 p-4 border-r">
+        <p className="font-semibold">Invoice Amount In Words:</p>
+        <p>{numberToWords(total)}</p>
+
+        <div className="mt-2">
+          <p className="font-semibold">GST Amount In Words:</p>
+          <p>{numberToWords(cgst + sgst)}</p>
         </div>
-        
-        <div className="w-1/3 p-4">
-          <p className="flex justify-between text-xs">
-            <span>Total:</span>
-            <span>₹{fmt(subtotal)}</span>
-          </p>
-          <p className="flex justify-between text-xs">
-            <span>CGST: 9.0%</span>
-            <span>₹{fmtIndian(cgst)}</span>
-          </p>
-          <p className="flex justify-between text-xs">
-            <span>SGST: 9.0%</span>
-            <span>₹{fmtIndian(sgst)}</span>
-          </p>
-           <p className="flex justify-between text-xs">
-            <span>IGST: 18.0%</span>
-            <span>-</span>
-          </p>
-          <p className="flex justify-between text-sm font-bold border-t mt-1 pt-1">
-            <span>GROSS TOTAL:</span>
-            <span>₹{fmtIndian(total)}</span>
-          </p>
-          
-          <div className="mt-4">
-            <p className="text-xs mb-1">Payment details</p>
-            <p className="text-xs">DATE:</p>
-            <p className="text-xs">CHEQUE NO:</p>
-            <p className="text-xs">AMOUNT:</p>
-            <p className="text-xs">CASH:</p>
-          </div>
-          
-          <div className="mt-2 border-t pt-2">
-            <p className="text-center text-xs">For SHIVANSH INKS</p>
-            <div className="h-5"></div>
-            <p className="text-center text-xs">Proprietor</p>
-          </div>
+
+        <div className="mt-2">
+          <p className="font-semibold">Payment Terms</p>
+          <p>IMMEDIATE</p>
+        </div>
+
+        <div className="mt-2 py-2 border-y text-xs">
+          <ol className="list-decimal pl-4">
+            <li>Our responsibility ceases as soon as the goods leave our godown.</li>
+            <li>Payment to be made by cheque in favor of SHIVANSH INKS</li>
+            <li>Interest will be charged @ 36% after Due Date.</li>
+            <li>Only our official receipt will be recognized.</li>
+            <li>Subject to jurisdiction only. E.&O.E.</li>
+          </ol>
+        </div>
+
+        <div className="mt-2">
+          <p>Our Bank Name: GREATER BANK BHANDUP</p>
+          <p>Bank A/C No: 30202380455</p>
+          <p>IFSC: GBCB0000022</p>
         </div>
       </div>
-      
-      {/* Bank Details */}
-      <div className="p-1 grid grid-cols-3 gap-2" style={{ fontSize: '5px' }}>
-        <div>
-          <p><strong>Our Bank Name:</strong> GREATER BANK BHANDUP</p>
-          <p><strong>Bank A/C No:</strong> 30202380455</p>
-          <p><strong>IFSC:</strong> GBCB0000022</p>
+
+      <div className="w-1/3 font-mono p-4">
+        <p className="flex justify-between">
+          <span>Total:</span> <span>₹{fmt(subtotal)}</span>
+        </p>
+        <p className="flex justify-between">
+          <span>CGST: 9.0%</span> <span>₹{fmtIndian(cgst)}</span>
+        </p>
+        <p className="flex justify-between">
+          <span>SGST: 9.0%</span> <span>₹{fmtIndian(sgst)}</span>
+        </p>
+        <p className="flex justify-between">
+          <span>IGST: 18.0%</span> <span>-</span>
+        </p>
+        <p className="flex justify-between text-sm font-bold border-t mt-1 pt-1">
+          <span>GROSS TOTAL:</span> <span>₹{fmtIndian(total)}</span>
+        </p>
+
+        <div className="mt-4">
+          <p className="mb-1">Payment details</p>
+          <p>DATE:</p>
+          <p>CHEQUE NO:</p>
+          <p>AMOUNT:</p>
+          <p>CASH:</p>
         </div>
-        <div className="col-span-2 text-right">
-          <p className="italic">(ORIGINAL FOR RECIPIENT)</p>
-          <p className="text-xs">Certified that the particulars given above are true and correct</p>
-          <p className="mt-1">Receiver's Signature with Rubber Stamp</p>
+
+        <div className="mt-2 border-t pt-2 text-center">
+          <p>For SHIVANSH INKS</p>
+          <div className="h-5"></div>
+          <p>Proprietor</p>
         </div>
       </div>
     </div>
-  );
+
+    {/* Footer Note */}
+    <div className="p-2 grid grid-cols-3 gap-2 text-[10px]">
+      <div >
+        <p className="italic"> <strong>(ORIGINAL FOR RECIPIENT)</strong></p>
+        <p>Certified that the particulars given above are true and correct</p>
+      </div>
+      <div className="col-span-2 text-center border-l pb-10">
+        <p className="mt-1 font-semibold">Receiver's Signature with Rubber Stamp</p>
+      </div>
+    </div>
+  </div>
+);
+
 }

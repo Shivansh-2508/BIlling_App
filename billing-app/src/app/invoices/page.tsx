@@ -152,7 +152,7 @@ export default function InvoiceListPage() {
             top: 0 !important;
             width: 210mm !important;
             min-height: 297mm !important;
-            padding: 20mm !important;
+            padding: 10mm !important;
             box-sizing: border-box !important;
             background: white !important;
             font-size: 12px !important;
@@ -168,7 +168,7 @@ export default function InvoiceListPage() {
           #invoicePreviewRef td {
             padding: 4px 8px !important;
             font-size: 11px !important;
-            border: 1px solid #ddd !important;
+            border: 1px solid !important;
           }
         }
       `;
