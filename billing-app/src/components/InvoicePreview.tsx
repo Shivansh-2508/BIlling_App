@@ -119,12 +119,7 @@ export function InvoicePreview({ form }: PreviewProps) {
   const challNo = invoice_no || 'Not specified';
 
   return (
-    <div className="w-full border bg-white text-black print:text-black" style={{  
-       minHeight: '290mm', 
-       maxHeight: '290mm',
-       margin: '0 auto',
-       fontSize: '12px',
-       lineHeight: '1.3' }}>
+    <div className="w-full border bg-white text-black print:text-black" >
       {/* Header */}
       <div className="border-b p-4">
         <div className="flex flex-col items-center mb-2">
@@ -136,7 +131,7 @@ export function InvoicePreview({ form }: PreviewProps) {
           <p className="text-xs text-center">GSTIN: 27AACPA8313L1ZU</p>
         </div>
         
-        <div className="text-center text-xl font-bold border-y py-2 my-2">
+        <div className="text-center text-xl font-bold border-t py-2 mt-2">
           TAX INVOICE
         </div>
       </div>
@@ -144,17 +139,17 @@ export function InvoicePreview({ form }: PreviewProps) {
       {/* Invoice Details and Customer Info */}
       <div className="grid grid-cols-2 gap-4 p-4 border-b">
         <div>
-          <p className="text-sm"><strong>Invoice No:</strong> {invoice_no || 'Not specified'}</p>
-          <p className="text-sm"><strong>Invoice Date:</strong> {invoiceDate}</p>
-          <p className="text-sm"><strong>Challan No:</strong> {challNo}</p>
-          <p className="text-sm"><strong>Challan Date:</strong> {challDate}</p>
+          <p className="text-xs"><strong>Invoice No:</strong> {invoice_no || 'Not specified'}</p>
+          <p className="text-xs"><strong>Invoice Date:</strong> {invoiceDate}</p>
+          <p className="text-xs"><strong>Challan No:</strong> {challNo}</p>
+          <p className="text-xs"><strong>Challan Date:</strong> {challDate}</p>
         </div>
         
         <div>
-          <p className="text-sm"><strong>M/s:</strong> {buyer_name || 'No buyer selected'}</p>
-          <p className="text-sm">{address || ''}</p>
+          <p className="text-xs"><strong>{buyer_name || 'No buyer selected'}</strong> </p>
+          <p className="text-xs">{address || ''}</p>
           {/* Enhanced GSTIN display with better formatting and debugging */}
-          <p className="text-sm">
+          <p className="text-xs">
             <strong>GSTIN:</strong> 
             <span 
               className="ml-1" 
@@ -166,12 +161,12 @@ export function InvoicePreview({ form }: PreviewProps) {
               {formatGSTIN(gstin)}
             </span>
           </p>
-          <p className="text-sm"><strong>State:</strong> MAHARASHTRA <strong>Code:</strong> 27</p>
+          <p className="text-xs"><strong>State:</strong> MAHARASHTRA <strong>Code:</strong> 27</p>
         </div>
       </div>
       
       {/* Transport Info */}
-      <div className="grid grid-cols-3 gap-4 text-xs p-4 border-b">
+      <div className="grid grid-cols-3 gap-4 text-xs p-1 border-b">
         <div>
           <p><strong>Transporter:</strong></p>
         </div>
@@ -243,12 +238,12 @@ export function InvoicePreview({ form }: PreviewProps) {
       {/* Totals Section */}
       <div className="flex border-b">
         <div className="w-2/3 p-4 border-r">
-          <p className="text-sm font-semibold">Invoice Amount In Words:</p>
-          <p className="text-sm">{numberToWords(total)}</p>
+          <p className="text-xs font-semibold">Invoice Amount In Words:</p>
+          <p className="text-xs">{numberToWords(total)}</p>
           
           <div className="mt-2">
-            <p className="text-sm font-semibold">GST Amount In Words:</p>
-            <p className="text-sm">{numberToWords(cgst + sgst)}</p>
+            <p className="text-xs font-semibold">GST Amount In Words:</p>
+            <p className="text-xs">{numberToWords(cgst + sgst)}</p>
           </div>
           
           <div className="mt-2 text-xs">
@@ -268,17 +263,21 @@ export function InvoicePreview({ form }: PreviewProps) {
         </div>
         
         <div className="w-1/3 p-4">
-          <p className="flex justify-between text-sm">
+          <p className="flex justify-between text-xs">
             <span>Total:</span>
             <span>₹{fmt(subtotal)}</span>
           </p>
-          <p className="flex justify-between text-sm">
+          <p className="flex justify-between text-xs">
             <span>CGST: 9.0%</span>
             <span>₹{fmtIndian(cgst)}</span>
           </p>
-          <p className="flex justify-between text-sm">
+          <p className="flex justify-between text-xs">
             <span>SGST: 9.0%</span>
             <span>₹{fmtIndian(sgst)}</span>
+          </p>
+           <p className="flex justify-between text-xs">
+            <span>IGST: 18.0%</span>
+            <span>-</span>
           </p>
           <p className="flex justify-between text-sm font-bold border-t mt-1 pt-1">
             <span>GROSS TOTAL:</span>
@@ -302,7 +301,7 @@ export function InvoicePreview({ form }: PreviewProps) {
       </div>
       
       {/* Bank Details */}
-      <div className="p-3 grid grid-cols-3 gap-2" style={{ fontSize: '10px' }}>
+      <div className="p-1 grid grid-cols-3 gap-2" style={{ fontSize: '5px' }}>
         <div>
           <p><strong>Our Bank Name:</strong> GREATER BANK BHANDUP</p>
           <p><strong>Bank A/C No:</strong> 30202380455</p>
