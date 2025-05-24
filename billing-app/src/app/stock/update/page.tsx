@@ -12,11 +12,12 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
-
 interface Product {
   _id: string;
   name: string;
   stock: number;
+  ratePerKg?: number;
+  hsnCode?: string;
 }
 
 const API_BASE = "http://localhost:5000";
@@ -27,10 +28,22 @@ export default function StockCRUDPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [newProduct, setNewProduct] = useState({ name: "", stock: 0 });
   const [editId, setEditId] = useState<string | null>(null);
-  const [editProduct, setEditProduct] = useState({ name: "", stock: 0 });
   const [searchTerm, setSearchTerm] = useState("");
+
+const [editProduct, setEditProduct] = useState({ 
+  name: "", 
+  stock: 0, 
+  ratePerKg: 0, 
+  hsnCode: "" 
+});
+
+  const [newProduct, setNewProduct] = useState({ 
+  name: "", 
+  stock: 0, 
+  ratePerKg: 0, 
+  hsnCode: "" 
+});
 
   const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -48,10 +61,12 @@ export default function StockCRUDPage() {
       console.log("Fetched products:", data);
 
       const processedData = data.map((product: any) => ({
-        _id: product._id,
-        name: product.name,
-        stock: parseInt(product.stock) || 0,
-      }));
+  _id: product._id,
+  name: product.name,
+  stock: parseInt(product.stock) || 0,
+  ratePerKg: parseFloat(product.ratePerKg) || 0,
+  hsnCode: product.hsnCode || "",
+}));
 
       setProducts(processedData);
     } catch (err) {
@@ -75,39 +90,63 @@ export default function StockCRUDPage() {
     }
   }, [success, error]);
 
+  const validateProduct = (product: typeof newProduct) => {
+  if (!product.name.trim()) {
+    setError("Product name is required.");
+    return false;
+  }
+  if (product.stock <= 0) {
+    setError("Quantity must be greater than 0.");
+    return false;
+  }
+  if (!product.hsnCode.trim()) {
+    setError("HSN Code is required.");
+    return false;
+  }
+  return true;
+};
+
   const handleCreate = async () => {
-    if (!newProduct.name.trim()) return;
-    setSaving(true);
-    setError("");
-    setSuccess("");
-    try {
-      const res = await fetch(`${API_BASE}/products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newProduct.name,
-          stock: Number(newProduct.stock) || 0,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to create product.");
-      setSuccess("Product created successfully!");
-      setNewProduct({ name: "", stock: 0 });
-      fetchProducts();
-    } catch {
-      setError("Failed to create product.");
-    }
-    setSaving(false);
-  };
+  if (!validateProduct(newProduct)) return;
+  
+  setSaving(true);
+  setError("");
+  setSuccess("");
+  try {
+    const res = await fetch(`${API_BASE}/products`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: newProduct.name.trim(),
+        stock: Number(newProduct.stock),
+        ratePerKg: Number(newProduct.ratePerKg) || 0,
+        hsnCode: newProduct.hsnCode.trim(),
+      }),
+    });
+    if (!res.ok) throw new Error("Failed to create product.");
+    setSuccess("Product created successfully!");
+    setNewProduct({ name: "", stock: 0, ratePerKg: 0, hsnCode: "" });
+    fetchProducts();
+  } catch {
+    setError("Failed to create product.");
+  }
+  setSaving(false);
+};
 
   const startEdit = (product: Product) => {
-    setEditId(product._id);
-    setEditProduct({ name: product.name, stock: 0 }); // Default stock to 0 for editing
-  };
+  setEditId(product._id);
+  setEditProduct({ 
+    name: product.name, 
+    stock: 0, // Default stock to 0 for editing (as increment)
+    ratePerKg: product.ratePerKg || 0,
+    hsnCode: product.hsnCode || ""
+  });
+};
 
   const cancelEdit = () => {
-    setEditId(null);
-    setEditProduct({ name: "", stock: 0 });
-  };
+  setEditId(null);
+  setEditProduct({ name: "", stock: 0, ratePerKg: 0, hsnCode: "" });
+};
 
   const handleEditSave = async (id: string) => {
     setSaving(true);
@@ -120,6 +159,11 @@ export default function StockCRUDPage() {
         setSaving(false);
         return;
       }
+      if (!editProduct.hsnCode.trim()) {
+  setError("HSN Code is required.");
+  setSaving(false);
+  return;
+}
 
       // Find the current product from the products state
       const currentProduct = products.find((product) => product._id === id);
@@ -134,14 +178,19 @@ export default function StockCRUDPage() {
       const res = await fetch(`${API_BASE}/products/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editProduct.name.trim(), stock: updatedStock }),
+        body: JSON.stringify({ 
+  name: editProduct.name.trim(), 
+  stock: updatedStock,
+  ratePerKg: Number(editProduct.ratePerKg) || 0,
+  hsnCode: editProduct.hsnCode.trim()
+}),
       });
 
       if (!res.ok) throw new Error("Failed to update product.");
 
       setSuccess("Product updated successfully!");
       setEditId(null);
-      setEditProduct({ name: "", stock: 0 });
+      setEditProduct({ name: "", stock: 0, ratePerKg: 0, hsnCode: "" });
 
       // Refresh the product list
       await fetchProducts();
@@ -204,56 +253,92 @@ export default function StockCRUDPage() {
         {/* Add Product */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-4 sm:mb-6">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
-            <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
             Add New Product
           </h2>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Product Name</label>
-              <input
-                type="text"
-                required
-                value={newProduct.name}
-                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500"
-                placeholder="Enter product name"
-              />
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <div className="flex-1 sm:max-w-xs">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Stock Quantity</label>
-                <input
-                  type="number"
-                  required
-                  value={newProduct.stock}
-                  onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) || 0 })}
-                  className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500"
-                  placeholder="0"
-                />
-              </div>
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={handleCreate}
-                  disabled={saving}
-                  className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-lg sm:rounded-xl hover:bg-indigo-700 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 justify-center min-h-[42px] sm:min-h-[48px] text-sm sm:text-base"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      Add Product
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Product Name <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        required
+        value={newProduct.name}
+        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
+        placeholder="Enter product name"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        HSN Code <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="text"
+        required
+        value={newProduct.hsnCode}
+        onChange={(e) => setNewProduct({ ...newProduct, hsnCode: e.target.value })}
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
+        placeholder="Enter HSN code"
+      />
+    </div>
+  </div>
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Quantity <span className="text-red-500">*</span>
+      </label>
+      <input
+        type="number"
+        required
+        min="1"
+        value={newProduct.stock}
+        onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) || 0 })}
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
+        placeholder="Enter quantity"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Rate per KG
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        value={newProduct.ratePerKg}
+        onChange={(e) => setNewProduct({ ...newProduct, ratePerKg: Number(e.target.value) || 0 })}
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
+        placeholder="Enter rate per kg"
+      />
+    </div>
+  </div>
+  
+  <div className="flex justify-end">
+    <button
+      type="button"
+      onClick={handleCreate}
+      disabled={saving}
+      className="px-6 sm:px-8 py-2.5 sm:py-3 bg-indigo-600 text-white rounded-lg sm:rounded-xl hover:bg-indigo-700 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 justify-center min-h-[42px] sm:min-h-[48px] text-sm sm:text-base"
+    >
+      {saving ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Adding...
+        </>
+      ) : (
+        <>
+          <Plus className="w-4 h-4" />
+          Add Product
+        </>
+      )}
+    </button>
+  </div>
+</div>
           </div>
-        </div>
+
 
         {/* Product List */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
