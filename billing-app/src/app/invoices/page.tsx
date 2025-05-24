@@ -54,7 +54,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('https://billing-app-onzk.onrender.com/invoices')
+    fetch('http://localhost:5000/invoices')
       .then((res) => {
         if (!res.ok) {
           throw new Error('Failed to fetch invoices');
@@ -256,7 +256,7 @@ export default function InvoiceListPage() {
       ) : error ? (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p>{error}</p>
-          <p className="text-sm">Please ensure your API server is running at https://billing-app-onzk.onrender.com</p>
+          <p className="text-sm">Please ensure your API server is running at http://localhost:5000</p>
         </div>
       ) : invoices.length === 0 ? (
         <div className="text-center py-8 bg-gray-50 rounded-lg">

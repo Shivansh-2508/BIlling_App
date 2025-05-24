@@ -19,7 +19,7 @@ interface Product {
   stock: number;
 }
 
-const API_BASE = "https://billing-app-onzk.onrender.com";
+const API_BASE = "http://localhost:5000";
 
 export default function StockCRUDPage() {
   const [products, setProducts] = useState<Product[]>([]);
