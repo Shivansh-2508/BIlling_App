@@ -31,23 +31,38 @@ def convert_objectid(doc):
 
 # --- Invoice Routes ---
 
-@app.route("/invoices", methods=["GET"])
+# Update your existing /invoices GET route to include status field
+@app.route('/invoices', methods=['GET'])
 def get_invoices():
-    all_invoices = list(invoices.find({}, {
-        "_id": 1,
-        "invoice_no": 1,
-        "date": 1,
-        "buyer_name": 1,
-        "address": 1,
-        "items": 1,
-        "subtotal": 1,
-        "cgst": 1,
-        "sgst": 1,
-        "total_amount": 1
-    }))
-    all_invoices = [convert_objectid(inv) for inv in all_invoices]
-    return jsonify(all_invoices)
-
+    try:
+        # Add status field to the projection
+        projection = {
+            "_id": 1,
+            "invoice_no": 1,
+            "date": 1,
+            "buyer_name": 1,
+            "address": 1,
+            "items": 1,
+            "subtotal": 1,
+            "cgst": 1,
+            "sgst": 1,
+            "total_amount": 1,
+            "status": 1 
+        }
+        
+        invoices_list = list(invoices.find({}, projection))
+        
+        for inv in invoices_list:
+            inv['_id'] = str(inv['_id'])
+            # Set default status if not present
+            if 'status' not in inv:
+                inv['status'] = 'unpaid'
+        
+        return jsonify(invoices_list), 200
+        
+    except Exception as e:
+        print('Error fetching invoices:', str(e))
+        return jsonify({'error': 'Internal Server Error'}), 500
 @app.route("/invoices/<invoice_id>", methods=["GET"])
 def get_invoice(invoice_id):
     try:
@@ -260,7 +275,8 @@ def get_buyer_statement(buyer_id):
             "invoice_no": 1,
             "date": 1,
             "items": 1,
-            "total_amount": 1
+            "total_amount": 1,
+            "status": 1 
         }
         
         invoices_list = list(invoices.find(query, projection))
@@ -317,6 +333,44 @@ def get_buyer_statement(buyer_id):
         print('Error in /statements/<buyer_id>:', str(e))
         print(traceback.format_exc())
         return jsonify({'error': 'Internal Server Error'}), 500
+    
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
+
+@app.route('/api/mark_invoice_paid', methods=['POST'])
+def mark_invoice_paid():
+    data = request.get_json()
+    invoice_id = data.get('invoice_id')
+    
+    try:
+        db.collection('invoices').document(invoice_id).update({'status': 'Paid'})
+        return jsonify({"message": "Invoice marked as Paid"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+# Update invoice status (Mark as Paid)
+@app.route('/invoices/<invoice_id>', methods=['PUT'])
+def update_invoice_status(invoice_id):
+    try:
+        data = request.get_json()
+        print(f"Updating invoice {invoice_id} with data: {data}") 
+        
+        # Validate ObjectId
+        if not ObjectId.is_valid(invoice_id):
+            return jsonify({"error": "Invalid invoice ID format"}), 400
+        
+        # Update the invoice status
+        result = invoices.update_one(
+            {"_id": ObjectId(invoice_id)},
+            {"$set": {"status": data.get("status", "unpaid")}}
+        )
+        
+        if result.matched_count == 0:
+            return jsonify({"error": "Invoice not found"}), 404
+            
+        return jsonify({"message": "Invoice status updated successfully"}), 200
+        
+    except Exception as e:
+        print(f"Error updating invoice {invoice_id}: {e}")
+        return jsonify({"error": "Invalid invoice ID or server error"}), 400

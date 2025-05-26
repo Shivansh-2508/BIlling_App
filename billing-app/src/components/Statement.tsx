@@ -372,12 +372,19 @@ export default function PrintableStatement({ apiBaseUrl }) {
               <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <div className="space-y-2">
                   <p><span className="font-medium">Buyer:</span> {statement.buyer}</p>
-                  {statement.buyer_gstin && (
-                    <p><span className="font-medium">GSTIN:</span> {statement.buyer_gstin}</p>
-                  )}
-                  <p><span className="font-medium">Total Invoices:</span> {statement.invoice_count}</p>
-                  {/* <p><span className="font-medium">Total Quantity:</span> {statement.total_qty.toFixed(2)} kg</p> */}
-                  <p><span className="font-medium">Total Amount:</span> ₹{statement.total_amount.toFixed(2)}</p>
+  {statement.buyer_gstin && (
+    <p><span className="font-medium">GSTIN:</span> {statement.buyer_gstin}</p>
+  )}
+  <p><span className="font-medium">Total Invoices:</span> {statement.invoice_count}</p>
+  <p><span className="font-medium">Total Amount:</span> ₹{statement.total_amount.toFixed(2)}</p>
+  
+  {/* Add these lines for payment status */}
+  <p><span className="font-medium">Payment Status:</span> 
+    <span className="ml-2">
+      Paid: {statement.invoices.filter(inv => inv.status === 'paid').length} | 
+      Unpaid: {statement.invoices.filter(inv => inv.status !== 'paid').length}
+    </span>
+  </p>
                 </div>
                 
                 {(startDate || endDate) && (

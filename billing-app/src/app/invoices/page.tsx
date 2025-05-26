@@ -27,6 +27,7 @@ interface Invoice {
   cgst: number;
   sgst: number;
   total_amount: number;
+  status?: string;
 }
 
 // Format date for display
@@ -53,42 +54,39 @@ export default function InvoiceListPage() {
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetch('http://localhost:5000/invoices')
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Failed to fetch invoices');
-        }
-        return res.json();
-      })
-      .then((data) => {
-        // Format dates and ensure numeric fields are properly typed
-        const formattedInvoices = data.map((inv: Invoice) => ({
-          ...inv,
-          // Format date as YYYY-MM-DD for proper display
-          date: inv.date ? new Date(inv.date).toISOString().split('T')[0] : '',
-          // Ensure all numeric fields are numbers
-          subtotal: Number(inv.subtotal || 0),
-          cgst: Number(inv.cgst || 0),
-          sgst: Number(inv.sgst || 0),
-          total_amount: Number(inv.total_amount || 0),
-          // Ensure all items have proper number fields
-          items: inv.items.map(item => ({
-            ...item,
-            packing_qty: Number(item.packing_qty || 0),
-            no_of_units: Number(item.no_of_units || 0),
-            rate_per_kg: Number(item.rate_per_kg || 0)
-          }))
-        }));
-        setInvoices(formattedInvoices);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('Error fetching invoices:', err);
-        setError(err.message);
-        setLoading(false);
-      });
-  }, []);
+  setLoading(true);
+  fetch('http://localhost:5000/invoices')
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error('Failed to fetch invoices');
+      }
+      return res.json();
+    })
+    .then((data) => {
+      const formattedInvoices = data.map((inv: Invoice) => ({
+        ...inv,
+        date: inv.date ? new Date(inv.date).toISOString().split('T')[0] : '',
+        subtotal: Number(inv.subtotal || 0),
+        cgst: Number(inv.cgst || 0),
+        sgst: Number(inv.sgst || 0),
+        total_amount: Number(inv.total_amount || 0),
+        status: inv.status || 'unpaid', // Add this line
+        items: inv.items.map(item => ({
+          ...item,
+          packing_qty: Number(item.packing_qty || 0),
+          no_of_units: Number(item.no_of_units || 0),
+          rate_per_kg: Number(item.rate_per_kg || 0)
+        }))
+      }));
+      setInvoices(formattedInvoices);
+      setLoading(false);
+    })
+    .catch((err) => {
+      console.error('Error fetching invoices:', err);
+      setError(err.message);
+      setLoading(false);
+    });
+}, []);
 
   // Ensure InvoicePreview is loaded and rendered properly
   useEffect(() => {
@@ -186,6 +184,46 @@ export default function InvoiceListPage() {
   //   }
   // };
 
+  const markAsPaid = async (invoiceId: string) => {
+  try {
+    const res = await fetch(`http://localhost:5000/invoices/${invoiceId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || "Failed to update invoice status");
+    }
+    
+    // Refresh the invoice list
+    const refreshRes = await fetch('http://localhost:5000/invoices');
+    if (refreshRes.ok) {
+      const data = await refreshRes.json();
+      const formattedInvoices = data.map((inv: Invoice) => ({
+        ...inv,
+        date: inv.date ? new Date(inv.date).toISOString().split('T')[0] : '',
+        subtotal: Number(inv.subtotal || 0),
+        cgst: Number(inv.cgst || 0),
+        sgst: Number(inv.sgst || 0),
+        total_amount: Number(inv.total_amount || 0),
+        status: inv.status || 'unpaid',
+        items: inv.items.map(item => ({
+          ...item,
+          packing_qty: Number(item.packing_qty || 0),
+          no_of_units: Number(item.no_of_units || 0),
+          rate_per_kg: Number(item.rate_per_kg || 0)
+        }))
+      }));
+      setInvoices(formattedInvoices);
+    }
+  } catch (err) {
+    console.error("Error marking invoice as paid:", err);
+    alert("Failed to mark invoice as paid. Please try again.");
+  }
+};
+
   // Alternative PDF generation approach using print
   const downloadPDFAlternative = () => {
     if (!previewRef.current || !selectedInvoice) return;
@@ -278,29 +316,55 @@ export default function InvoiceListPage() {
               </div>
               <div className="divide-y max-h-[70vh] overflow-y-auto">
                 {invoices.map((inv) => (
-                  <div
-                    key={inv._id}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      selectedInvoice?._id === inv._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                    }`}
-                    onClick={() => setSelectedInvoice(inv)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-gray-800">INV# {inv.invoice_no}</p>
-                        <p className="text-sm text-gray-600">{formatDate(inv.date)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">₹{inv.total_amount.toFixed(2)}</p>
-                        <p className="text-sm text-gray-600">{inv.buyer_name}</p>
-                      </div>
-                    </div>
-                  </div>
+  <div
+    key={inv._id}
+    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+      selectedInvoice?._id === inv._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+    }`}
+    onClick={() => setSelectedInvoice(inv)}
+  >
+    <div className="flex justify-between items-center">
+      <div>
+        <p className="font-medium text-gray-800">INV# {inv.invoice_no}</p>
+        <p className="text-sm text-gray-600">{formatDate(inv.date)}</p>
+      </div>
+      <div className="text-right">
+        <p className="font-semibold text-gray-900">₹{inv.total_amount.toFixed(2)}</p>
+        <p className="text-sm text-gray-600">{inv.buyer_name}</p>
+      </div>
+    </div>
+    <div className="mt-2 flex justify-between items-center">
+      <div>
+        {inv.status === "paid" ? (
+          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+            Paid
+          </span>
+        ) : (
+          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full">
+            Unpaid
+          </span>
+        )}
+      </div>
+      <div>
+        {inv.status !== "paid" && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent triggering the invoice selection
+              markAsPaid(inv._id);
+            }}
+            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+          >
+            Mark as Paid
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
                 ))}
               </div>
             </div>
           </div>
-
+          
           {/* Invoice Preview */}
           <div className="w-full lg:w-3/5">
             {selectedInvoice ? (
