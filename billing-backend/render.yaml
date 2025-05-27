@@ -11,4 +11,4 @@ services:
     autoDeploy: true
     envVars:
       - key: MONGO_URI
-        value: mongodb+srv://shivanshink:j2TdbmLYKhG7r5us@billing-app.u8vogax.mongodb.net/billing-app?retryWrites=true&w=majority&appName=billing-app
+        value: mongodb+srv://akshad:<db_password>@cluster1.azieu0u.mongodb.net/?retryWrites=true&w=majority&appName=cluster1

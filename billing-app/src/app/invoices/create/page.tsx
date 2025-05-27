@@ -14,16 +14,18 @@ const fmt = (n: number | string) => Number(n).toFixed(2);
   const [selectedBuyerId, setSelectedBuyerId] = useState('');
   const [products, setProducts] = useState([]);
 
-  // Invoice form state
-  const [form, setForm] = useState({
-    invoice_no: '',
-    date: '',
-    buyer_name: '',
-    address: '',
-    items: [
-      { product_name: '', packing_qty: 0, no_of_units: 0, rate_per_kg: 0 },
-    ],
-  });
+// Invoice form state
+const [form, setForm] = useState({
+  invoice_no: '',
+  date: '',
+  buyer_name: '',
+  address: '',
+  gstin: '',
+  items: [
+    { product_name: '', packing_qty: 0, no_of_units: 0, rate_per_kg: 0, hsn_code: '' },
+  ],
+});
+
 
   // Error state
   const [errors, setErrors] = useState({
@@ -63,36 +65,40 @@ const fmt = (n: number | string) => Number(n).toFixed(2);
     );
   };
 
-  // Handle buyer selection
-  const handleBuyerChange = (e) => {
-    const buyerId = e.target.value;
-    setSelectedBuyerId(buyerId);
-    setErrors(prev => ({ ...prev, buyer: '' }));
+// Handle buyer selection
+const handleBuyerChange = (e) => {
+  const buyerId = e.target.value;
+  setSelectedBuyerId(buyerId);
+  setErrors(prev => ({ ...prev, buyer: '' }));
 
-    const selected = buyers.find((b) => b._id === buyerId);
-    if (selected) {
-      setForm((prev) => ({
-        ...prev,
-        buyer_name: selected.name,
-        address: selected.address,
-      }));
-    }
-  };
+  const selected = buyers.find((b) => b._id === buyerId);
+  if (selected) {
+    setForm((prev) => ({
+      ...prev,
+      buyer_name: selected.name,
+      address: selected.address,
+      gstin: selected.gstin || '', // Add this line
+    }));
+  }
+};
 
   // Handle item changes
-  const handleItemChange = (index: number, field: string, value: any) => {
-    const updated = [...form.items];
-    updated[index][field] = field === 'product_name' ? value : Number(value);
-    
-    // Reset error for this item when a product is selected
-    if (field === 'product_name') {
-      const newErrors = [...errors.items];
-      newErrors[index] = '';
-      setErrors(prev => ({ ...prev, items: newErrors }));
-    }
+const handleItemChange = (index: number, field: string, value: any) => {
+  const updated = [...form.items];
 
-    setForm({ ...form, items: updated });
-  };
+  updated[index][field] = ['product_name', 'hsn_code'].includes(field)
+    ? value
+    : Number(value);
+
+  if (field === 'product_name') {
+    const newErrors = [...errors.items];
+    newErrors[index] = '';
+    setErrors(prev => ({ ...prev, items: newErrors }));
+  }
+
+  setForm({ ...form, items: updated });
+};
+
 
   // Add new item row
   const addItem = () => {
@@ -143,19 +149,21 @@ const fmt = (n: number | string) => Number(n).toFixed(2);
   };
 
   // Safe product selection handler
-  const handleProductSelection = (idx: number, value: string) => {
-    if (!value) {
-      handleItemChange(idx, 'product_name', '');
-      return;
-    }
-    
-    const selected = products.find(p => p.name === value);
-    if (selected) {
-      handleItemChange(idx, 'product_name', selected.name);
-      handleItemChange(idx, 'packing_qty', selected.default_packing_qty);
-      handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg);
-    }
-  };
+ const handleProductSelection = (idx: number, value: string) => {
+  if (!value) {
+    handleItemChange(idx, 'product_name', '');
+    return;
+  }
+
+  const selected = products.find(p => p.name === value);
+  if (selected) {
+    handleItemChange(idx, 'product_name', selected.name);
+    handleItemChange(idx, 'packing_qty', selected.default_packing_qty);
+    handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg);
+    handleItemChange(idx, 'hsn_code', selected.hsn_code); // <-- Add this
+  }
+};
+
 
   // Unified save invoice function (combines previous handleSubmit and handleSaveInvoice)
   const saveInvoice = async (e) => {
@@ -170,12 +178,13 @@ const fmt = (n: number | string) => Number(n).toFixed(2);
 
     try {
       const invoicePayload = {
-        ...form,
-        subtotal,
-        cgst,
-        sgst,
-        total_amount: totalAmount,
-      };
+            ...form,
+            subtotal,
+            cgst,
+            sgst,
+            total_amount: totalAmount,
+          };
+
 
       const res = await fetch('http://localhost:5000/invoices', {
         method: 'POST',
@@ -312,6 +321,20 @@ const fmt = (n: number | string) => Number(n).toFixed(2);
                   className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed h-24"
                 />
               </div>
+
+
+              {/* GSTIN */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GSTIN
+                  </label>
+                  <input
+                    type="text"
+                    value={form.gstin}
+                    readOnly
+                    className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 cursor-not-allowed"
+                  />
+                </div>
             </div>
 
             {/* Items Section */}
@@ -455,3 +478,4 @@ const fmt = (n: number | string) => Number(n).toFixed(2);
     </div>
   );
 }
+
