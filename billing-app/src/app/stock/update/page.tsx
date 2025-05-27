@@ -248,7 +248,7 @@ export default function StockCRUDPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Quantity <span className="text-red-500">*</span>
+                  Stock Quantity <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -422,7 +422,7 @@ export default function StockCRUDPage() {
             </button>
           </div>
         </td>
-      </tr>
+        </tr>
                     )
                   )}
                 </tbody>
