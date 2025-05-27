@@ -6,7 +6,6 @@ import { InvoicePreview } from '@/components/InvoicePreview'; // adjust path if 
 import { Download, FileText, Eye, Printer } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 import CreateInvoiceButton from '@/components/CreateInvoiceButton';
-import UpdateStockButton from "@/components/UpdateStockButton";
 
 // Item structure - matching what's used in CreateInvoicePage
 interface Item {
@@ -22,6 +21,7 @@ interface Invoice {
   date: string;
   buyer_name: string;
   address: string;
+  gstin: string;
   items: Item[];
   subtotal: number;
   cgst: number;
@@ -54,7 +54,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('http://localhost:5000/invoices')
+    fetch('https://billing-app-onzk.onrender.com/invoices')
       .then((res) => {
         if (!res.ok) {
           throw new Error('Failed to fetch invoices');
@@ -109,132 +109,92 @@ export default function InvoiceListPage() {
       return () => clearTimeout(timer);
     }
   }, [selectedInvoice]);
-  
-  // const downloadPDF = async () => {
-  //   if (!previewRef.current || !selectedInvoice) {
-  //     console.error('Preview reference or selected invoice not available');
-  //     return;
-  //   }
-    
-  //   try {
-  //     setPdfLoading(true);
-      
-  //     // Clone the element to avoid modifying the visible DOM
-  //     const element = previewRef.current.cloneNode(true) as HTMLElement;
-      
-  //     // Make sure any images and styles are properly loaded
-  //     // Add specific PDF printing styles
-  //     const style = document.createElement('style');
-  //     style.textContent = `
-  //       @media print {
-  //         body, html, * {
-  //           -webkit-print-color-adjust: exact !important;
-  //           color-adjust: exact !important;
-  //         }
-  //         table { page-break-inside: avoid; }
-  //         tr { page-break-inside: avoid; }
-  //       }
-  //     `;
-  //     element.appendChild(style);
-      
-  //     // Configure html2pdf with optimal settings
-  //     const options = {
-  //       margin: 10,
-  //       filename: `Invoice_${selectedInvoice.invoice_no}.pdf`,
-  //       image: { type: 'jpeg', quality: 1.0 },
-  //       html2canvas: { 
-  //         scale: 2, 
-  //         useCORS: true,
-  //         logging: true,
-  //         letterRendering: true
-  //       },
-  //       jsPDF: { 
-  //         unit: 'mm', 
-  //         format: 'a4', 
-  //         orientation: 'portrait',
-  //         compress: true
-  //       }
-  //     };
-      
-  //     // Wait a moment to ensure all content is fully rendered
-  //     setTimeout(async () => {
-  //       try {
-  //         const pdf = await html2pdf().from(element).set(options).outputPdf('blob');
-  //         const url = URL.createObjectURL(pdf);
-          
-  //         // Create a temporary link and trigger download
-  //         const link = document.createElement('a');
-  //         link.href = url;
-  //         link.download = `Invoice_${selectedInvoice.invoice_no}.pdf`;
-  //         link.click();
-          
-  //         // Clean up
-  //         URL.revokeObjectURL(url);
-  //         setPdfLoading(false);
-  //       } catch (err) {
-  //         console.error('Error generating PDF:', err);
-  //         alert('Failed to generate PDF. Please try again.');
-  //         setPdfLoading(false);
-  //         // Try alternative method as fallback
-  //         downloadPDFAlternative();
-  //       }
-  //     }, 500);
-  //   } catch (err) {
-  //     console.error('Error in PDF generation:', err);
-  //     alert('Failed to generate PDF. Please try again with Print View option.');
-  //     setPdfLoading(false);
-  //   }
-  // };
 
-  // Alternative PDF generation approach using print
+  // Fixed PDF generation using print with proper targeting
   const downloadPDFAlternative = () => {
     if (!previewRef.current || !selectedInvoice) return;
-    
+
     try {
       setPdfLoading(true);
-      
+
       // Save original title
       const originalTitle = document.title;
       document.title = `Invoice_${selectedInvoice.invoice_no}`;
-      
+
       // Create a print-only stylesheet
-      const style = document.createElement('style');
-      style.type = 'text/css';
+      const style = document.createElement("style");
+      style.type = "text/css";
       style.innerHTML = `
         @media print {
-          body * {
-            visibility: hidden;
+          @page {
+            size: A4 portrait;
+            margin: 0;
           }
-          #previewRef, #previewRef * {
-            visibility: visible;
-          }
-          #previewRef {
-            position: absolute;
-            left: 0;
-            top: 0;
+
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto;
             width: 100%;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          #invoicePreviewRef, #invoicePreviewRef * {
+            visibility: visible !important;
+          }
+
+          #invoicePreviewRef {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            padding: 10mm !important;
+            box-sizing: border-box !important;
+            background: white !important;
+            font-size: 12px !important;
+          }
+
+          /* Ensure tables and content fit properly */
+          #invoicePreviewRef table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+
+          #invoicePreviewRef th,
+          #invoicePreviewRef td {
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+            border: 1px solid !important;
           }
         }
       `;
       document.head.appendChild(style);
-      
-      // Add unique ID to preview element
-      previewRef.current.id = 'previewRef';
-      
-      // Print with timeout to ensure styles are applied
+
+      // Add ID to preview div for targeting
+      previewRef.current.id = "invoicePreviewRef";
+
+      // Wait to apply styles before printing
       setTimeout(() => {
         window.print();
-        
-        // Cleanup
-        document.title = originalTitle;
-        document.head.removeChild(style);
-        previewRef.current?.removeAttribute('id');
-        setPdfLoading(false);
+
+        // Cleanup after print dialog
+        setTimeout(() => {
+          document.title = originalTitle;
+          document.head.removeChild(style);
+          if (previewRef.current) {
+            previewRef.current.removeAttribute("id");
+          }
+          setPdfLoading(false);
+        }, 1000);
       }, 500);
     } catch (err) {
-      console.error('Error in alternative PDF method:', err);
+      console.error("Error in PDF generation:", err);
       setPdfLoading(false);
-      alert('PDF generation failed. Please try again.');
+      alert("PDF generation failed. Please try again.");
     }
   };
 
@@ -242,7 +202,7 @@ export default function InvoiceListPage() {
     <div className="max-w-7xl mx-auto p-6">
       <div className="flex items-center mb-6 border-b pb-4">
         <FileText className="w-8 h-8 mr-3 text-blue-600" />
-        <h1 className="text-2xl font-semibold text-gray-00">All Invoices</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">All Invoices</h1>
       </div>
       <div className="flex justify-between mb-6">
         <BackToHome />
@@ -256,7 +216,7 @@ export default function InvoiceListPage() {
       ) : error ? (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           <p>{error}</p>
-          <p className="text-sm">Please ensure your API server is running at http://localhost:5000</p>
+          <p className="text-sm">Please ensure your API server is running at https://billing-app-onzk.onrender.com</p>
         </div>
       ) : invoices.length === 0 ? (
         <div className="text-center py-8 bg-gray-50 rounded-lg">
@@ -310,11 +270,11 @@ export default function InvoiceListPage() {
                     <Eye className="w-4 h-4 mr-2" /> Invoice Preview
                   </h2>
                   <div className="flex space-x-2">
-                    {/* <button
-                      onClick={downloadPDF}
+                    <button
+                      onClick={downloadPDFAlternative}
                       disabled={pdfLoading}
                       className={`flex items-center px-3 py-1 ${
-                        pdfLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                        pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                       } text-white text-sm rounded transition-colors`}
                     >
                       {pdfLoading ? (
@@ -324,16 +284,9 @@ export default function InvoiceListPage() {
                         </>
                       ) : (
                         <>
-                          <Download className="w-4 h-4 mr-1" /> Download PDF
+                          <Printer className="w-4 h-4 mr-1" /> Download PDF
                         </>
                       )}
-                    </button> */}
-                    <button
-                      onClick={downloadPDFAlternative}
-                      disabled={pdfLoading}
-                      className="flex items-center px-3 py-1 bg-blue-600 hover:bg-gray-700 text-white text-sm rounded"
-                    >
-                      <Printer className="w-4 h-4 mr-1" /> Download PDF
                     </button>
                   </div>
                 </div>
