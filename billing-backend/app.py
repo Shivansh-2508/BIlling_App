@@ -45,7 +45,8 @@ def get_invoices():
         "subtotal": 1,
         "cgst": 1,
         "sgst": 1,
-        "total_amount": 1
+        "total_amount": 1,
+        "status": 1
     }))
     all_invoices = [convert_objectid(inv) for inv in all_invoices]
     return jsonify(all_invoices)
@@ -109,7 +110,8 @@ def add_invoice():
             'subtotal': data['subtotal'],
             'cgst': data['cgst'],
             'sgst': data['sgst'],
-            'total_amount': data['total_amount']
+            'total_amount': data['total_amount'],
+            'status': 'unpaid'
         }
 
         result = invoices.insert_one(invoice_data)
@@ -144,6 +146,24 @@ def update_invoice(invoice_id):
         print(f"Error updating invoice {invoice_id}:", e)
         return jsonify({"error": "Invalid invoice ID or server error"}), 400
 
+@app.route('/invoices/<invoice_id>/status', methods=['PUT'])
+def update_invoice_status(invoice_id):
+    try:
+        data = request.get_json()
+        status = data.get('status')
+        if status not in ['paid', 'unpaid']:
+            return jsonify({'error': 'Invalid status'}), 400
+        result = invoices.update_one(
+            {"_id": ObjectId(invoice_id)},
+            {"$set": {"status": status}}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"message": "Status updated"}), 200
+    except Exception as e:
+        print(f"Error updating status for invoice {invoice_id}:", e)
+        return jsonify({"error": "Invalid invoice ID or server error"}), 400
+    
 # DELETE: Delete invoice
 @app.route('/invoices/<invoice_id>', methods=['DELETE'])
 def delete_invoice(invoice_id):
@@ -417,7 +437,8 @@ def get_buyer_statement(buyer_id):
             "invoice_no": 1,
             "date": 1,
             "items": 1,
-            "total_amount": 1
+            "total_amount": 1,
+            "status": 1
         }
         
         # Then get invoices for this buyer with date filters

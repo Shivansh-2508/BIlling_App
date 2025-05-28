@@ -27,6 +27,7 @@ interface Invoice {
   cgst: number;
   sgst: number;
   total_amount: number;
+  status?: 'paid' | 'unpaid';
 }
 
 // Format date for display
@@ -237,27 +238,51 @@ export default function InvoiceListPage() {
                 <h2 className="font-medium text-gray-700">Invoice List</h2>
               </div>
               <div className="divide-y max-h-[70vh] overflow-y-auto">
-                {invoices.map((inv) => (
-                  <div
-                    key={inv._id}
-                    className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                      selectedInvoice?._id === inv._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                    }`}
-                    onClick={() => setSelectedInvoice(inv)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-gray-800">INV# {inv.invoice_no}</p>
-                        <p className="text-sm text-gray-600">{formatDate(inv.date)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">₹{inv.total_amount.toFixed(2)}</p>
-                        <p className="text-sm text-gray-600">{inv.buyer_name}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+  {invoices.map((inv) => (
+    <div
+      key={inv._id}
+      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+        selectedInvoice?._id === inv._id ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+      }`}
+      onClick={() => setSelectedInvoice(inv)}
+    >
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="font-medium text-gray-800">INV# {inv.invoice_no}</p>
+          <p className="text-sm text-gray-600">{formatDate(inv.date)}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-semibold text-gray-900">₹{inv.total_amount.toFixed(2)}</p>
+          <p className="text-sm text-gray-600">{inv.buyer_name}</p>
+          <p className={`text-xs mt-1 font-bold ${inv.status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
+            {inv.status === 'paid' ? 'Paid' : 'Unpaid'}
+          </p>
+          {inv.status !== 'paid' && (
+            <button
+              className="mt-1 px-2 py-1 bg-green-600 text-white rounded text-xs"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${inv._id}/status`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ status: 'paid' }),
+                });
+                setInvoices((prev) =>
+                  prev.map((i) => i._id === inv._id ? { ...i, status: 'paid' } : i)
+                );
+                if (selectedInvoice?._id === inv._id) {
+                  setSelectedInvoice({ ...inv, status: 'paid' });
+                }
+              }}
+            >
+              Mark as Paid
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
             </div>
           </div>
 

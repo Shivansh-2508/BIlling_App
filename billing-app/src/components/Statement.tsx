@@ -470,7 +470,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                 </div>
                 <button
                   onClick={handlePrint}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm"
+                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer"
                 >
                   <Download className="w-5 h-5" />
                   Print Statement
@@ -516,6 +516,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                           <th>Date</th>
                           <th>Items</th>
                           <th>Amount (₹)</th>
+                          <th>Status</th> 
                         </tr>
                       </thead>
                       <tbody>
@@ -525,6 +526,15 @@ export default function PrintableStatement({ apiBaseUrl }) {
                             <td>{formatDate(invoice.date)}</td>
                             <td>{invoice.items?.length || 0}</td>
                             <td>₹{invoice.total_amount?.toFixed(2) || '0.00'}</td>
+                            <td>
+        <span style={{
+          color: invoice.status === 'paid' ? 'green' : 'red',
+          fontWeight: 'bold',
+          textTransform: 'capitalize'
+        }}>
+          {invoice.status || 'unpaid'}
+        </span>
+      </td>
                           </tr>
                         ))}
                       </tbody>
@@ -632,6 +642,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
                               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Items</th>
                               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Amount</th>
+                              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -651,6 +662,11 @@ export default function PrintableStatement({ apiBaseUrl }) {
                                 <td className="px-6 py-4 whitespace-nowrap">
                                   <span className="text-sm font-bold text-gray-900">₹{invoice.total_amount?.toFixed(2) || '0.00'}</span>
                                 </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+        <span className={`font-bold ${invoice.status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
+          {invoice.status || 'unpaid'}
+        </span>
+      </td>
                               </tr>
                             ))}
                           </tbody>
@@ -660,6 +676,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="text-lg font-bold text-emerald-600">₹{statement.total_amount?.toFixed(2) || '0.00'}</span>
                               </td>
+                              
                             </tr>
                           </tfoot>
                         </table>
@@ -681,6 +698,9 @@ export default function PrintableStatement({ apiBaseUrl }) {
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                   {invoice.items?.length || 0} items
                                 </span>
+                                <span className={`ml-2 text-xs font-bold ${invoice.status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
+            {invoice.status || 'unpaid'}
+          </span>
                               </div>
                             </div>
                           ))}
