@@ -315,7 +315,7 @@ export default function CreateInvoicePage() {
 
                     {/* Date */}
                     <div>
-                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+                      <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3 cursor-pointer">
                         <Calendar className="w-4 h-4 text-blue-600" />
                         Invoice Date
                       </label>
@@ -512,9 +512,9 @@ export default function CreateInvoicePage() {
                     <button
                       type="button"
                       onClick={addItem}
-                      className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl text-sm sm:text-base w-full sm:w-auto"
+                      className="flex cursor-pointer items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl text-sm sm:text-base w-full sm:w-auto"
                     >
-                      <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Plus className="w-4 h-4 sm:w-5 sm:h-5 " />
                       Add Item
                     </button>
                   </div>
@@ -652,7 +652,7 @@ export default function CreateInvoicePage() {
                 <div className="flex justify-end pt-4 sm:pt-6">
                   <button
                     type="submit"
-                    className="flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all duration-200 shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 w-full sm:w-auto"
+                    className="flex cursor-pointer items-center justify-center gap-2 sm:gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg transition-all duration-200 shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 w-full sm:w-auto"
                   >
                     <Save className="w-5 h-5 sm:w-6 sm:h-6" />
                     Generate Invoice
