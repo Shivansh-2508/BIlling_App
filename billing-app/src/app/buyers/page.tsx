@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Plus, Loader2, AlertCircle, CheckCircle,  Trash2 }from "lucide-react";
 
 interface Buyer {
   _id: string;
@@ -62,6 +62,24 @@ export default function BuyersPage() {
     }
     setSaving(false);
   };
+
+  const handleDeleteBuyer = async (buyerId: string) => {
+  if (!window.confirm("Are you sure you want to delete this buyer?")) return;
+  setSaving(true);
+  setError("");
+  setSuccess("");
+  try {
+    const res = await fetch(`${API_BASE}/buyers/${buyerId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete buyer.");
+    setSuccess("Buyer deleted successfully!");
+    fetchBuyers();
+  } catch {
+    setError("Failed to delete buyer.");
+  }
+  setSaving(false);
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 lg:p-6">
@@ -179,14 +197,24 @@ export default function BuyersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {buyers.map((buyer) => (
-                    <tr key={buyer._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.name}</td>
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.address}</td>
-                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.gstin}</td>
-                    </tr>
-                  ))}
-                </tbody>
+  {buyers.map((buyer) => (
+    <tr key={buyer._id} className="hover:bg-gray-50 transition-colors">
+      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.name}</td>
+      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.address}</td>
+      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black flex items-center justify-between gap-2">
+        <span>{buyer.gstin}</span>
+        <button
+          title="Delete Buyer"
+          onClick={() => handleDeleteBuyer(buyer._id)}
+          className="ml-2 text-red-600 hover:text-red-800 p-1 rounded transition-colors"
+          disabled={saving}
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </td>
+    </tr>
+  ))}
+</tbody>
               </table>
             </div>
           )}
