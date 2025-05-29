@@ -117,7 +117,23 @@ def add_invoice():
         result = invoices.insert_one(invoice_data)
         print(f"Invoice saved with ID: {result.inserted_id}")
         
+        # --- Deduct stock for each product in the invoice ---
+        for item in data['items']:
+            product_name = item.get('product_name')
+            qty_to_deduct = float(item.get('packing_qty', 0)) * float(item.get('no_of_units', 0))
+            if product_name and qty_to_deduct > 0:
+                # Find the product by name
+                product = products.find_one({"name": product_name})
+                if product:
+                    new_stock = float(product.get('stock_quantity', 0)) - qty_to_deduct
+                    products.update_one(
+                        {"_id": product["_id"]},
+                        {"$set": {"stock_quantity": new_stock}}
+                    )
+                    print(f"Deducted {qty_to_deduct} from {product_name}, new stock: {new_stock}")
+
         return jsonify({'message': 'Invoice saved', 'id': str(result.inserted_id)}), 201
+
         
     except Exception as e:
         print('Error in /invoices:', e)
