@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, X, Calendar, FileText, Download, Filter, User, TrendingUp, Eye, RefreshCw, AlertCircle } from 'lucide-react';
+import { Search, ChevronDown, X, Calendar, FileText, Download, Filter, User, TrendingUp, Eye, RefreshCw, AlertCircle, Share2 } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 
 export default function PrintableStatement({ apiBaseUrl }) {
@@ -10,8 +10,9 @@ export default function PrintableStatement({ apiBaseUrl }) {
   const [error, setError] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const printRef = useRef(null);
-  
+
   // Search functionality state
   const [buyerSearchTerm, setBuyerSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -28,7 +29,6 @@ export default function PrintableStatement({ apiBaseUrl }) {
         setIsDropdownOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -39,11 +39,9 @@ export default function PrintableStatement({ apiBaseUrl }) {
     try {
       setLoading(true);
       const res = await fetch(`${apiBaseUrl}/buyers`);
-      
       if (!res.ok) {
         throw new Error(`Failed to fetch buyers: ${res.status} ${res.statusText}`);
       }
-      
       const data = await res.json();
       setBuyers(data);
     } catch (err) {
@@ -57,25 +55,18 @@ export default function PrintableStatement({ apiBaseUrl }) {
 
   const fetchStatement = async (buyer) => {
     if (!buyer) return;
-    
     setLoading(true);
     setError('');
-    
     try {
       const params = new URLSearchParams();
-      
       if (startDate) params.append('start_date', startDate);
       if (endDate) params.append('end_date', endDate);
-      
       const queryString = params.toString() ? `?${params.toString()}` : '';
       const url = `${apiBaseUrl}/statements/${buyer}${queryString}`;
-      
       const res = await fetch(url);
-      
       if (!res.ok) {
         throw new Error(`Failed to fetch statement: ${res.status} ${res.statusText}`);
       }
-      
       const data = await res.json();
       setStatement(data);
     } catch (err) {
@@ -133,21 +124,88 @@ export default function PrintableStatement({ apiBaseUrl }) {
     }
   };
 
-  const handlePrint = () => {
-    const printContent = document.getElementById('printable-content');
-    if (!printContent) return;
-    
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Please allow popups for this website to print the statement.');
-      return;
+  // --- PDF GENERATION USING jsPDF (dynamic import) ---
+  const generatePDF = async () => {
+    if (!statement) return null;
+    const jsPDF = (await import("jspdf")).default;
+    await import("jspdf-autotable");
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(18);
+    doc.text("Buyer Statement", 14, 16);
+
+    // Buyer Info
+    doc.setFontSize(12);
+    doc.text(`Buyer: ${statement.buyer}`, 14, 28);
+    if (statement.buyer_gstin) {
+      doc.text(`GSTIN: ${statement.buyer_gstin}`, 14, 36);
     }
-    
-    printWindow.document.write(`
+    doc.text(`Total Invoices: ${statement.invoice_count}`, 14, statement.buyer_gstin ? 44 : 36);
+    doc.text(`Total Amount: ₹${statement.total_amount?.toFixed(2) || '0.00'}`, 14, statement.buyer_gstin ? 52 : 44);
+
+    let y = statement.buyer_gstin ? 60 : 52;
+    if (startDate || endDate) {
+      if (startDate) {
+        doc.text(`From: ${new Date(startDate).toLocaleDateString('en-IN')}`, 14, y);
+        y += 8;
+      }
+      if (endDate) {
+        doc.text(`To: ${new Date(endDate).toLocaleDateString('en-IN')}`, 14, y);
+        y += 8;
+      }
+    }
+
+    // Table
+    y += 6;
+    doc.setFontSize(14);
+    doc.text("Invoice Details", 14, y);
+    y += 4;
+
+    if (!statement.invoices || statement.invoices.length === 0) {
+      doc.setFontSize(12);
+      doc.text("No invoices found for this buyer within the selected date range.", 14, y + 10);
+    } else {
+      const tableColumn = ["Invoice No", "Date", "Items", "Amount (₹)", "Status"];
+      const tableRows = statement.invoices.map((invoice) => [
+        invoice.invoice_no,
+        formatDate(invoice.date),
+        invoice.items?.length || 0,
+        `₹${invoice.total_amount?.toFixed(2) || '0.00'}`,
+        (invoice.status || 'unpaid').toUpperCase(),
+      ]);
+      // @ts-ignore
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: y + 6,
+        styles: { fontSize: 11 },
+        headStyles: { fillColor: [33, 150, 243] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // Total row
+      const finalY = (doc).lastAutoTable.finalY || y + 20;
+      doc.setFontSize(13);
+      doc.text(
+        `Total Amount: ₹${statement.total_amount?.toFixed(2) || '0.00'}`,
+        14,
+        finalY + 12
+      );
+    }
+
+    return doc;
+  };
+
+  // Export PDF function (browser print dialog)
+  const generatePDFContent = () => {
+    if (!statement) return '';
+    return `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Buyer Statement</title>
+        <title>Buyer Statement - ${statement.buyer}</title>
+        <meta charset="UTF-8">
         <style>
           body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -193,28 +251,130 @@ export default function PrintableStatement({ apiBaseUrl }) {
             background: #f8fafc;
           }
           @media print {
-            .no-print { display: none; }
             body { margin: 0; padding: 15mm; }
           }
         </style>
       </head>
       <body>
-        ${printContent.innerHTML}
-        <div class="no-print" style="margin-top: 20px; text-align: center;">
-          <button onclick="window.print();" style="background: #2563eb; color: white; padding: 8px 16px; border: none; border-radius: 6px; margin-right: 8px; cursor: pointer;">Print Statement</button>
-          <button onclick="window.close();" style="background: #6b7280; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">Close</button>
+        <div class="header">
+          <h1>Buyer Statement</h1>
+          <p>Generated on ${new Date().toLocaleDateString('en-IN')}</p>
         </div>
-        <script>
-          window.onload = function() {
-            setTimeout(() => window.print(), 500);
-          };
-        </script>
+        <div class="info-section">
+          <p><strong>Buyer:</strong> ${statement.buyer}</p>
+          ${statement.buyer_gstin ? `<p><strong>GSTIN:</strong> ${statement.buyer_gstin}</p>` : ''}
+          <p><strong>Total Invoices:</strong> ${statement.invoice_count}</p>
+          <p><strong>Total Amount:</strong> ₹${statement.total_amount?.toFixed(2) || '0.00'}</p>
+          ${(startDate || endDate) ? `
+            <div>
+              ${startDate ? `<p><strong>From:</strong> ${new Date(startDate).toLocaleDateString('en-IN')}</p>` : ''}
+              ${endDate ? `<p><strong>To:</strong> ${new Date(endDate).toLocaleDateString('en-IN')}</p>` : ''}
+            </div>
+          ` : ''}
+        </div>
+        <h3>Invoice Details</h3>
+        ${statement.invoices?.length === 0 ? 
+          '<p>No invoices found for this buyer within the selected date range.</p>' : `
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice No</th>
+                <th>Date</th>
+                <th>Items</th>
+                <th>Amount (₹)</th>
+                <th>Status</th> 
+              </tr>
+            </thead>
+            <tbody>
+              ${statement.invoices?.map((invoice) => `
+                <tr>
+                  <td>${invoice.invoice_no}</td>
+                  <td>${formatDate(invoice.date)}</td>
+                  <td>${invoice.items?.length || 0}</td>
+                  <td>₹${invoice.total_amount?.toFixed(2) || '0.00'}</td>
+                  <td style="color: ${invoice.status === 'paid' ? 'green' : 'red'}; font-weight: bold; text-transform: capitalize;">
+                    ${invoice.status || 'unpaid'}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr class="total-row">
+                <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
+                <td><strong>₹${statement.total_amount?.toFixed(2) || '0.00'}</strong></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        `}
       </body>
       </html>
-    `);
-    
-    printWindow.document.close();
+    `;
   };
+
+  const handleExportPDF = async () => {
+    if (!statement) return;
+    setIsGeneratingPDF(true);
+    try {
+      const htmlContent = generatePDFContent();
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups for this website to generate PDF.');
+        return;
+      }
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      };
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handleSharePDF = async () => {
+  if (!statement) return;
+  setIsGeneratingPDF(true);
+  try {
+    const doc = await generatePDF();
+    if (!doc) throw new Error("Could not generate PDF");
+    const pdfBlob = doc.output("blob");
+    const pdfFile = new File(
+      [pdfBlob],
+      `Statement_${statement.buyer}_${new Date().toISOString().split('T')[0]}.pdf`,
+      { type: "application/pdf" }
+    );
+
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+      await navigator.share({
+        title: `Statement for ${statement.buyer}`,
+        text: `Buyer statement for ${statement.buyer} - Total: ₹${statement.total_amount?.toFixed(2) || '0.00'}`,
+        files: [pdfFile],
+      });
+    } else {
+      // Fallback: download the PDF
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = pdfFile.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+  } catch (error) {
+    console.error('Error sharing PDF:', error);
+    alert('Error sharing statement. Please try again.');
+  } finally {
+    setIsGeneratingPDF(false);
+  }
+};
 
   const formatDate = (dateString) => {
     try {
@@ -226,7 +386,6 @@ export default function PrintableStatement({ apiBaseUrl }) {
 
   const calculateInvoiceTotalQty = (invoice) => {
     if (!invoice.items || !Array.isArray(invoice.items)) return 0;
-    
     return invoice.items.reduce((sum, item) => {
       const qty = typeof item.total_qty === 'number' ? item.total_qty : 
                   (typeof item.total_qty === 'string' ? parseFloat(item.total_qty) : 0);
@@ -262,10 +421,9 @@ export default function PrintableStatement({ apiBaseUrl }) {
             </div>
             <p className="text-blue-100 mt-1">Select buyer and date range to generate statement</p>
           </div>
-          
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              {/* Custom Searchable Dropdown for Buyers - Expandable container */}
+              {/* Custom Searchable Dropdown for Buyers */}
               <div className={`relative transition-all duration-300 ${isDropdownOpen ? 'lg:col-span-2' : ''}`} ref={dropdownRef}>
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                   <User className="w-4 h-4 text-blue-600" />
@@ -300,8 +458,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                       />
                     </div>
                   </div>
-                  
-                  {/* Dropdown Menu - Expanded to show 10 buyers */}
+                  {/* Dropdown Menu */}
                   {isDropdownOpen && (
                     <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-200">
                       {/* Search Input */}
@@ -319,8 +476,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                           />
                         </div>
                       </div>
-                      
-                      {/* Buyer Options - Show 10 buyers at once */}
+                      {/* Buyer Options */}
                       <div className="max-h-80 overflow-y-auto">
                         {filteredBuyers.length > 0 ? (
                           filteredBuyers.map((buyer, index) => (
@@ -360,7 +516,6 @@ export default function PrintableStatement({ apiBaseUrl }) {
                           </div>
                         )}
                       </div>
-                      
                       {/* Show count info at bottom */}
                       {filteredBuyers.length > 0 && (
                         <div className="p-3 bg-gray-50 border-t border-gray-200">
@@ -374,8 +529,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                   )}
                 </div>
               </div>
-              
-              {/* Start Date - Conditionally adjust grid span */}
+              {/* Start Date */}
               <div className={`${isDropdownOpen ? 'lg:col-span-1' : ''}`}>
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                   <Calendar className="w-4 h-4 text-blue-600" />
@@ -389,8 +543,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
                   disabled={loading}
                 />
               </div>
-              
-              {/* End Date - Moves to next row when dropdown is expanded */}
+              {/* End Date */}
               <div className={`${isDropdownOpen ? 'lg:col-span-3' : ''}`}>
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                   <Calendar className="w-4 h-4 text-blue-600" />
@@ -406,7 +559,6 @@ export default function PrintableStatement({ apiBaseUrl }) {
                 />
               </div>
             </div>
-            
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 justify-end">
               <button
@@ -447,7 +599,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
             </div>
           </div>
         )}
-        
+
         {/* Error State */}
         {error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-xl shadow-lg mb-6">
@@ -468,113 +620,70 @@ export default function PrintableStatement({ apiBaseUrl }) {
                   <h2 className="text-2xl font-bold text-white mb-2">Statement Summary</h2>
                   <p className="text-emerald-100">Financial overview for {statement.buyer}</p>
                 </div>
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer"
-                >
-                  <Download className="w-5 h-5" />
-                  Print Statement
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              {/* Hidden Print Content */}
-              <div className="hidden text-black">
-                <div id="printable-content">
-                  <div className="header">
-                    <h1 className='text-black'>Buyer Statement</h1>
-                    <p>Generated on {new Date().toLocaleDateString('en-IN')}</p>
-                  </div>
-                  
-                  <div className="info-section">
-                    <p><strong>Buyer:</strong> {statement.buyer}</p>
-                    {statement.buyer_gstin && (
-                      <p><strong>GSTIN:</strong> {statement.buyer_gstin}</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={isGeneratingPDF}
+                    className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingPDF ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-5 h-5" />
+                        Export PDF
+                      </>
                     )}
-                    <p><strong>Total Invoices:</strong> {statement.invoice_count}</p>
-                    <p><strong>Total Amount:</strong> ₹{statement.total_amount?.toFixed(2) || '0.00'}</p>
-                    
-                    {(startDate || endDate) && (
-                      <div>
-                        {/* <p><strong>Filtered By:</strong></p> */}
-                        {startDate && <p><strong>From:</strong> {new Date(startDate).toLocaleDateString('en-IN')}</p>}
-                        {endDate && <p><strong>To:</strong> {new Date(endDate).toLocaleDateString('en-IN')}</p>}
-                      </div>
+                  </button>
+                  {/* <button
+                    onClick={handleSharePDF}
+                    disabled={isGeneratingPDF}
+                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-white/30"
+                  >
+                    {isGeneratingPDF ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Sharing...
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-5 h-5" />
+                        Share PDF
+                      </>
                     )}
-                  </div>
-                  
-                  <h3 className='text-black'>Invoice Details</h3>
-                  
-                  {statement.invoices?.length === 0 ? (
-                    <p>No invoices found for this buyer within the selected date range.</p>
-                  ) : (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Invoice No</th>
-                          <th>Date</th>
-                          <th>Items</th>
-                          <th>Amount (₹)</th>
-                          <th>Status</th> 
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {statement.invoices?.map((invoice) => (
-                          <tr key={invoice._id}>
-                            <td>{invoice.invoice_no}</td>
-                            <td>{formatDate(invoice.date)}</td>
-                            <td>{invoice.items?.length || 0}</td>
-                            <td>₹{invoice.total_amount?.toFixed(2) || '0.00'}</td>
-                            <td>
-        <span style={{
-          color: invoice.status === 'paid' ? 'green' : 'red',
-          fontWeight: 'bold',
-          textTransform: 'capitalize'
-        }}>
-          {invoice.status || 'unpaid'}
-        </span>
-      </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="total-row">
-                          <td colSpan={3} style={{textAlign: 'right'}}><strong>Total:</strong></td>
-                          <td><strong>₹{statement.total_amount?.toFixed(2) || '0.00'}</strong></td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  )}
+                  </button> */}
                 </div>
               </div>
-              
+            </div>
+            <div className="p-6">
               {/* Visual Preview */}
               <div ref={printRef} className="preview-content">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                 <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-  <div className="flex items-start justify-between gap-3">
-    <div className="flex-1 min-w-0">
-      <p className="text-blue-100 text-sm font-medium mb-2">Buyer</p>
-      <div className="group">
-        <p className="text-lg sm:text-xl font-bold leading-tight break-words hyphens-auto">
-          {statement.buyer}
-        </p>
-        {/* Tooltip for very long names on hover */}
-        {statement.buyer && statement.buyer.length > 25 && (
-          <div className="invisible group-hover:visible absolute z-10 mt-2 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg max-w-xs break-words opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            {statement.buyer}
-          </div>
-        )}
-      </div>
-    </div>
-    <div className="flex-shrink-0">
-      <User className="w-6 h-6 sm:w-8 sm:h-8 text-blue-200" />
-    </div>
-  </div>
-</div>
-                  
+                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-blue-100 text-sm font-medium mb-2">Buyer</p>
+                        <div className="group">
+                          <p className="text-lg sm:text-xl font-bold leading-tight break-words hyphens-auto">
+                            {statement.buyer}
+                          </p>
+                          {/* Tooltip for very long names on hover */}
+                          {statement.buyer && statement.buyer.length > 25 && (
+                            <div className="invisible group-hover:visible absolute z-10 mt-2 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg max-w-xs break-words opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                              {statement.buyer}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <User className="w-6 h-6 sm:w-8 sm:h-8 text-blue-200" />
+                      </div>
+                    </div>
+                  </div>
                   <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white">
                     <div className="flex items-center justify-between">
                       <div>
@@ -584,7 +693,6 @@ export default function PrintableStatement({ apiBaseUrl }) {
                       <TrendingUp className="w-8 h-8 text-amber-200" />
                     </div>
                   </div>
-                  
                   {statement.buyer_gstin && (
                     <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
                       <div className="flex items-center justify-between">
@@ -597,7 +705,6 @@ export default function PrintableStatement({ apiBaseUrl }) {
                     </div>
                   )}
                 </div>
-
                 {/* Date Filter Info */}
                 {(startDate || endDate) && (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
@@ -619,13 +726,11 @@ export default function PrintableStatement({ apiBaseUrl }) {
                     </div>
                   </div>
                 )}
-                
                 {/* Invoice Table - Mobile Responsive */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                   <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-900">Invoice Details</h3>
                   </div>
-                  
                   {statement.invoices?.length === 0 ? (
                     <div className="p-12 text-center">
                       <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -663,10 +768,10 @@ export default function PrintableStatement({ apiBaseUrl }) {
                                   <span className="text-sm font-bold text-gray-900">₹{invoice.total_amount?.toFixed(2) || '0.00'}</span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`font-bold ${invoice.status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
-          {invoice.status || 'unpaid'}
-        </span>
-      </td>
+                                  <span className={`font-bold ${invoice.status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {invoice.status || 'unpaid'}
+                                  </span>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -676,12 +781,11 @@ export default function PrintableStatement({ apiBaseUrl }) {
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <span className="text-lg font-bold text-emerald-600">₹{statement.total_amount?.toFixed(2) || '0.00'}</span>
                               </td>
-                              
+                              <td></td>
                             </tr>
                           </tfoot>
                         </table>
                       </div>
-
                       {/* Mobile Card View */}
                       <div className="sm:hidden">
                         <div className="divide-y divide-gray-200">
@@ -699,12 +803,11 @@ export default function PrintableStatement({ apiBaseUrl }) {
                                   {invoice.items?.length || 0} items
                                 </span>
                                 <span className={`ml-2 text-xs font-bold ${invoice.status === 'paid' ? 'text-green-600' : 'text-red-600'}`}>
-            {invoice.status || 'unpaid'}
-          </span>
+                                  {invoice.status || 'unpaid'}
+                                </span>
                               </div>
                             </div>
                           ))}
-                          
                           {/* Mobile Total */}
                           <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100">
                             <div className="flex justify-between items-center">
