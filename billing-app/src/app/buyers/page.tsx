@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Loader2, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
+import { Plus, Loader2, AlertCircle, CheckCircle, Trash2, Edit2, Save, X } from "lucide-react";
 
 interface Buyer {
   _id: string;
@@ -18,6 +18,8 @@ export default function BuyersPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editBuyer, setEditBuyer] = useState({ name: "", address: "", gstin: "" });
 
   const fetchBuyers = async () => {
     setLoading(true);
@@ -77,6 +79,42 @@ export default function BuyersPage() {
       fetchBuyers();
     } catch {
       setError("Failed to delete buyer.");
+    }
+    setSaving(false);
+  };
+
+  // --- Edit Logic ---
+  const startEdit = (buyer: Buyer) => {
+    setEditId(buyer._id);
+    setEditBuyer({ name: buyer.name, address: buyer.address, gstin: buyer.gstin });
+  };
+
+  const cancelEdit = () => {
+    setEditId(null);
+    setEditBuyer({ name: "", address: "", gstin: "" });
+  };
+
+  const handleEditSave = async (buyerId: string) => {
+    if (!editBuyer.name.trim() || !editBuyer.address.trim() || !editBuyer.gstin.trim()) {
+      setError("All fields are mandatory.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`${API_BASE}/buyers/${buyerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editBuyer),
+      });
+      if (!res.ok) throw new Error("Failed to update buyer.");
+      setSuccess("Buyer updated successfully!");
+      setEditId(null);
+      setEditBuyer({ name: "", address: "", gstin: "" });
+      fetchBuyers();
+    } catch {
+      setError("Failed to update buyer.");
     }
     setSaving(false);
   };
@@ -185,31 +223,87 @@ export default function BuyersPage() {
               {/* Mobile Card View - Hidden on md and up */}
               <div className="block md:hidden">
                 <div className="divide-y divide-gray-200">
-                  {buyers.map((buyer) => (
-                    <div key={buyer._id} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-semibold text-gray-900 text-base">{buyer.name}</h3>
-                        <button
-                          title="Delete Buyer"
-                          onClick={() => handleDeleteBuyer(buyer._id)}
-                          className="text-red-600 hover:text-red-800 p-1 rounded transition-colors ml-2"
-                          disabled={saving}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        <div>
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Address</span>
-                          <p className="text-sm text-gray-900 mt-1">{buyer.address}</p>
+                  {buyers.map((buyer) =>
+                    editId === buyer._id ? (
+                      <div key={buyer._id} className="p-4 bg-blue-50 rounded-lg mb-2">
+                        <div className="mb-3">
+                          <input
+                            type="text"
+                            value={editBuyer.name}
+                            onChange={e => setEditBuyer({ ...editBuyer, name: e.target.value })}
+                            className="w-full mb-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-black"
+                            placeholder="Name"
+                          />
+                          <input
+                            type="text"
+                            value={editBuyer.address}
+                            onChange={e => setEditBuyer({ ...editBuyer, address: e.target.value })}
+                            className="w-full mb-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-black"
+                            placeholder="Address"
+                          />
+                          <input
+                            type="text"
+                            value={editBuyer.gstin}
+                            onChange={e => setEditBuyer({ ...editBuyer, gstin: e.target.value })}
+                            className="w-full mb-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-black"
+                            placeholder="GSTIN"
+                          />
                         </div>
-                        <div>
-                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">GSTIN</span>
-                          <p className="text-sm text-gray-900 mt-1 font-mono">{buyer.gstin}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditSave(buyer._id)}
+                            disabled={saving}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 text-sm"
+                          >
+                            <Save className="w-4 h-4" />
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            disabled={saving}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium transition-colors disabled:opacity-50 text-sm"
+                          >
+                            <X className="w-4 h-4" />
+                            Cancel
+                          </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ) : (
+                      <div key={buyer._id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="font-semibold text-gray-900 text-base">{buyer.name}</h3>
+                          <div className="flex gap-1">
+                            <button
+                              title="Edit Buyer"
+                              onClick={() => startEdit(buyer)}
+                              className="text-indigo-600 hover:text-indigo-800 p-1 rounded transition-colors"
+                              disabled={saving}
+                            >
+                              <Edit2 className="w-5 h-5" />
+                            </button>
+                            <button
+                              title="Delete Buyer"
+                              onClick={() => handleDeleteBuyer(buyer._id)}
+                              className="text-red-600 hover:text-red-800 p-1 rounded transition-colors ml-1"
+                              disabled={saving}
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Address</span>
+                            <p className="text-sm text-gray-900 mt-1">{buyer.address}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">GSTIN</span>
+                            <p className="text-sm text-gray-900 mt-1 font-mono">{buyer.gstin}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -233,23 +327,85 @@ export default function BuyersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {buyers.map((buyer) => (
-                      <tr key={buyer._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-black font-medium">{buyer.name}</td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.address}</td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-black font-mono">{buyer.gstin}</td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
-                          <button
-                            title="Delete Buyer"
-                            onClick={() => handleDeleteBuyer(buyer._id)}
-                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                            disabled={saving}
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {buyers.map((buyer) =>
+                      editId === buyer._id ? (
+                        <tr key={buyer._id} className="bg-blue-50">
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <input
+                              type="text"
+                              value={editBuyer.name}
+                              onChange={e => setEditBuyer({ ...editBuyer, name: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                              placeholder="Name"
+                            />
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <input
+                              type="text"
+                              value={editBuyer.address}
+                              onChange={e => setEditBuyer({ ...editBuyer, address: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                              placeholder="Address"
+                            />
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <input
+                              type="text"
+                              value={editBuyer.gstin}
+                              onChange={e => setEditBuyer({ ...editBuyer, gstin: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono"
+                              placeholder="GSTIN"
+                            />
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => handleEditSave(buyer._id)}
+                                disabled={saving}
+                                className="inline-flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 text-sm"
+                              >
+                                <Save className="w-4 h-4" />
+                                Save
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                disabled={saving}
+                                className="inline-flex items-center gap-1 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium transition-colors disabled:opacity-50 text-sm"
+                              >
+                                <X className="w-4 h-4" />
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={buyer._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-black font-medium">{buyer.name}</td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.address}</td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-black font-mono">{buyer.gstin}</td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
+                            <div className="flex justify-center gap-1">
+                              <button
+                                title="Edit Buyer"
+                                onClick={() => startEdit(buyer)}
+                                className="text-indigo-600 hover:text-indigo-800 p-2 rounded-lg hover:bg-indigo-50 transition-colors"
+                                disabled={saving}
+                              >
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                              <button
+                                title="Delete Buyer"
+                                onClick={() => handleDeleteBuyer(buyer._id)}
+                                className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                disabled={saving}
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )}
                   </tbody>
                 </table>
               </div>
