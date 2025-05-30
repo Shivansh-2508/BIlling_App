@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Loader2, AlertCircle, CheckCircle,  Trash2 }from "lucide-react";
+import { Plus, Loader2, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
 
 interface Buyer {
   _id: string;
@@ -64,22 +64,22 @@ export default function BuyersPage() {
   };
 
   const handleDeleteBuyer = async (buyerId: string) => {
-  if (!window.confirm("Are you sure you want to delete this buyer?")) return;
-  setSaving(true);
-  setError("");
-  setSuccess("");
-  try {
-    const res = await fetch(`${API_BASE}/buyers/${buyerId}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) throw new Error("Failed to delete buyer.");
-    setSuccess("Buyer deleted successfully!");
-    fetchBuyers();
-  } catch {
-    setError("Failed to delete buyer.");
-  }
-  setSaving(false);
-};
+    if (!window.confirm("Are you sure you want to delete this buyer?")) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch(`${API_BASE}/buyers/${buyerId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete buyer.");
+      setSuccess("Buyer deleted successfully!");
+      fetchBuyers();
+    } catch {
+      setError("Failed to delete buyer.");
+    }
+    setSaving(false);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 lg:p-6">
@@ -176,47 +176,84 @@ export default function BuyersPage() {
               <p className="text-gray-500 text-sm sm:text-base">Loading buyers...</p>
             </div>
           ) : buyers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 sm:py-16text-black px-4">
+            <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-black px-4">
               <p className="text-base sm:text-lg font-medium mb-2 text-center">No buyers found</p>
               <p className="text-xs sm:text-sm text-center">Add your first buyer to get started</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-center text-xs font-medium text-black uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-center text-xs font-medium text-black uppercase tracking-wider">
-                      Address
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-center text-xs font-medium text-black uppercase tracking-wider">
-                      GSTIN
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-  {buyers.map((buyer) => (
-    <tr key={buyer._id} className="hover:bg-gray-50 transition-colors">
-      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.name}</td>
-      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.address}</td>
-      <td className="px-4 sm:px-6 py-3 sm:py-4 text-black flex items-center justify-between gap-2">
-        <span>{buyer.gstin}</span>
-        <button
-          title="Delete Buyer"
-          onClick={() => handleDeleteBuyer(buyer._id)}
-          className="ml-2 text-red-600 hover:text-red-800 p-1 rounded transition-colors"
-          disabled={saving}
-        >
-          <Trash2 className="w-5 h-5" />
-        </button>
-      </td>
-    </tr>
-  ))}
-</tbody>
-              </table>
-            </div>
+            <>
+              {/* Mobile Card View - Hidden on md and up */}
+              <div className="block md:hidden">
+                <div className="divide-y divide-gray-200">
+                  {buyers.map((buyer) => (
+                    <div key={buyer._id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="font-semibold text-gray-900 text-base">{buyer.name}</h3>
+                        <button
+                          title="Delete Buyer"
+                          onClick={() => handleDeleteBuyer(buyer._id)}
+                          className="text-red-600 hover:text-red-800 p-1 rounded transition-colors ml-2"
+                          disabled={saving}
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Address</span>
+                          <p className="text-sm text-gray-900 mt-1">{buyer.address}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">GSTIN</span>
+                          <p className="text-sm text-gray-900 mt-1 font-mono">{buyer.gstin}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Desktop Table View - Hidden on mobile */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Address
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        GSTIN
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {buyers.map((buyer) => (
+                      <tr key={buyer._id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-black font-medium">{buyer.name}</td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-black">{buyer.address}</td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-black font-mono">{buyer.gstin}</td>
+                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-center">
+                          <button
+                            title="Delete Buyer"
+                            onClick={() => handleDeleteBuyer(buyer._id)}
+                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            disabled={saving}
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

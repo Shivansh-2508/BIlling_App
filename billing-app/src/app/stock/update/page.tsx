@@ -32,9 +32,7 @@ export default function StockCRUDPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [editProduct, setEditProduct] = useState({ 
-    stock: 0
-  });
+  const [editProduct, setEditProduct] = useState<{ stock: string }>({ stock: "" });
 
   const [newProduct, setNewProduct] = useState({ 
     name: "", 
@@ -132,7 +130,7 @@ export default function StockCRUDPage() {
 
   const startEdit = (product: Product) => {
   setEditId(product._id);
-  setEditProduct({ stock: 0 }); // 0 means no change by default
+  setEditProduct({ stock: "" }); // 0 means no change by default
 };
 
 
@@ -245,7 +243,7 @@ export default function StockCRUDPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 ">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Stock Quantity <span className="text-red-500">*</span>
@@ -409,7 +407,6 @@ export default function StockCRUDPage() {
               className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg font-medium transition-colors text-xs sm:text-sm"
             >
               <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
-              Edit
             </button>
             <button
               type="button"
@@ -418,7 +415,6 @@ export default function StockCRUDPage() {
               className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
             >
               <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-              Delete
             </button>
           </div>
         </td>
