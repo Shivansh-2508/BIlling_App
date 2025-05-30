@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { InvoicePreview } from '@/components/InvoicePreview';
-import { Download, FileText, Eye, Printer, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Download, Share2, FileText, Eye, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 import CreateInvoiceButton from '@/components/CreateInvoiceButton';
 
@@ -65,14 +65,11 @@ export default function InvoiceListPage() {
         // Format dates and ensure numeric fields are properly typed
         const formattedInvoices = data.map((inv: Invoice) => ({
           ...inv,
-          // Format date as YYYY-MM-DD for proper display
           date: inv.date ? new Date(inv.date).toISOString().split('T')[0] : '',
-          // Ensure all numeric fields are numbers
           subtotal: Number(inv.subtotal || 0),
           cgst: Number(inv.cgst || 0),
           sgst: Number(inv.sgst || 0),
           total_amount: Number(inv.total_amount || 0),
-          // Ensure all items have proper number fields
           items: inv.items.map(item => ({
             ...item,
             packing_qty: Number(item.packing_qty || 0),
@@ -90,12 +87,9 @@ export default function InvoiceListPage() {
       });
   }, []);
 
-  // Ensure InvoicePreview is loaded and rendered properly
   useEffect(() => {
     if (selectedInvoice && previewRef.current) {
-      // Give the preview content time to render properly
       const timer = setTimeout(() => {
-        // Force a repaint to ensure all styles are applied
         if (previewRef.current) {
           previewRef.current.style.opacity = '0.99';
           setTimeout(() => {
@@ -105,96 +99,233 @@ export default function InvoiceListPage() {
           }, 10);
         }
       }, 100);
-      
       return () => clearTimeout(timer);
     }
   }, [selectedInvoice]);
 
-  // Fixed PDF generation using print with proper targeting
-  const downloadPDFAlternative = () => {
+  // Export to PDF (Direct Download) - keeps original InvoicePreview UI
+  const exportToPDF = async () => {
     if (!previewRef.current || !selectedInvoice) return;
 
     try {
       setPdfLoading(true);
 
-      // Save original title
-      const originalTitle = document.title;
-      document.title = `Invoice_${selectedInvoice.invoice_no}`;
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to download PDF');
+        setPdfLoading(false);
+        return;
+      }
 
-      // Create a print-only stylesheet
-      const style = document.createElement("style");
-      style.type = "text/css";
-      style.innerHTML = `
-        @media print {
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
+      // Use the original InvoicePreview HTML and styles
+      const invoiceContent = previewRef.current.innerHTML;
 
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto;
-            width: 100%;
+      // Copy all stylesheets from the main document
+      let styles = '';
+      Array.from(document.styleSheets).forEach((styleSheet: any) => {
+        try {
+          if (styleSheet.href) {
+            styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
+          } else if (styleSheet.cssRules) {
+            styles += '<style>';
+            Array.from(styleSheet.cssRules).forEach((rule: any) => {
+              styles += rule.cssText;
+            });
+            styles += '</style>';
           }
-
-          body * {
-            visibility: hidden !important;
-          }
-
-          #invoicePreviewRef, #invoicePreviewRef * {
-            visibility: visible !important;
-          }
-
-          #invoicePreviewRef {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 210mm !important;
-            min-height: 297mm !important;
-            padding: 10mm !important;
-            box-sizing: border-box !important;
-            background: white !important;
-            font-size: 12px !important;
-          }
-
-          /* Ensure tables and content fit properly */
-          #invoicePreviewRef table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-          }
-
-          #invoicePreviewRef th,
-          #invoicePreviewRef td {
-            padding: 4px 8px !important;
-            font-size: 11px !important;
-            border: 1px solid !important;
-          }
+        } catch (e) {
+          // Ignore CORS issues
         }
+      });
+
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Invoice_${selectedInvoice.invoice_no}</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            ${styles}
+            <style>
+              @page { size: A4 portrait; margin: 10mm; }
+              body { background: white; }
+              .print-area { background: white; padding: 0; }
+              @media print {
+                body { -webkit-print-color-adjust: exact; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="print-area">${invoiceContent}</div>
+          </body>
+        </html>
       `;
-      document.head.appendChild(style);
 
-      // Add ID to preview div for targeting
-      previewRef.current.id = "invoicePreviewRef";
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
 
-      // Wait to apply styles before printing
-      setTimeout(() => {
-        window.print();
-
-        // Cleanup after print dialog
+      printWindow.onload = () => {
         setTimeout(() => {
-          document.title = originalTitle;
-          document.head.removeChild(style);
-          if (previewRef.current) {
-            previewRef.current.removeAttribute("id");
-          }
+          printWindow.print();
+          printWindow.close();
           setPdfLoading(false);
-        }, 1000);
-      }, 500);
+        }, 500);
+      };
+
     } catch (err) {
-      console.error("Error in PDF generation:", err);
+      console.error("Error in PDF export:", err);
       setPdfLoading(false);
-      alert("PDF generation failed. Please try again.");
+      alert("PDF export failed. Please try again.");
+    }
+  };
+
+  // Share as PDF (opens a new window with share/download options, keeps original InvoicePreview UI)
+  const shareAsPDF = async () => {
+    if (!previewRef.current || !selectedInvoice) return;
+
+    try {
+      setPdfLoading(true);
+
+      // Mobile native share (text only, as PDF is not available without jsPDF)
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      if (isMobile && navigator.share) {
+        const invoiceText = `Invoice #${selectedInvoice.invoice_no}\nBuyer: ${selectedInvoice.buyer_name}\nAmount: ₹${selectedInvoice.total_amount.toFixed(2)}\nDate: ${formatDate(selectedInvoice.date)}`;
+        try {
+          await navigator.share({
+            title: `Invoice #${selectedInvoice.invoice_no}`,
+            text: invoiceText,
+            url: window.location.href
+          });
+          setPdfLoading(false);
+          return;
+        } catch (shareError) {
+          // fallback to share window
+        }
+      }
+
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        alert('Please allow popups to share PDF');
+        setPdfLoading(false);
+        return;
+      }
+
+      const invoiceContent = previewRef.current.innerHTML;
+      const fileName = `Invoice_${selectedInvoice.invoice_no}`;
+
+      // Copy all stylesheets from the main document
+      let styles = '';
+      Array.from(document.styleSheets).forEach((styleSheet: any) => {
+        try {
+          if (styleSheet.href) {
+            styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
+          } else if (styleSheet.cssRules) {
+            styles += '<style>';
+            Array.from(styleSheet.cssRules).forEach((rule: any) => {
+              styles += rule.cssText;
+            });
+            styles += '</style>';
+          }
+        } catch (e) {}
+      });
+
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${fileName}</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            ${styles}
+            <style>
+              @page { size: A4 portrait; margin: 10mm; }
+              body { background: white; }
+              .print-area { background: white; padding: 0; }
+              .share-buttons {
+                position: fixed; top: 10px; right: 10px; z-index: 1000;
+                display: flex; gap: 10px; flex-wrap: wrap;
+                background: rgba(255,255,255,0.95); padding: 10px; border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+              }
+              .share-btn {
+                padding: 8px 16px; border: none; border-radius: 6px;
+                cursor: pointer; font-size: 12px; font-weight: bold;
+                transition: all 0.2s; text-decoration: none; display: inline-block;
+              }
+              .download-btn { background: #3b82f6; color: white; }
+              .download-btn:hover { background: #2563eb; }
+              .whatsapp-btn { background: #25d366; color: white; }
+              .whatsapp-btn:hover { background: #128c7e; }
+              .email-btn { background: #ef4444; color: white; }
+              .email-btn:hover { background: #dc2626; }
+              .telegram-btn { background: #0088cc; color: white; }
+              .telegram-btn:hover { background: #006ba6; }
+              .close-btn { background: #6b7280; color: white; }
+              .close-btn:hover { background: #4b5563; }
+              @media print { .share-buttons { display: none !important; } }
+              @media (max-width: 600px) {
+                .share-buttons { position: relative; margin-bottom: 20px; top: auto; right: auto; width: 100%; }
+                .share-btn { width: calc(50% - 5px); margin-bottom: 5px; text-align: center; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="share-buttons">
+              <button class="share-btn download-btn" onclick="downloadPDF()">📥 Download PDF</button>
+              <a href="#" class="share-btn whatsapp-btn" onclick="shareWhatsApp(); return false;">📱 WhatsApp</a>
+              <a href="#" class="share-btn email-btn" onclick="shareEmail(); return false;">📧 Email</a>
+              <a href="#" class="share-btn telegram-btn" onclick="shareTelegram(); return false;">✈️ Telegram</a>
+              <button class="share-btn close-btn" onclick="window.close()">✕ Close</button>
+            </div>
+            <div class="print-area">${invoiceContent}</div>
+            <script>
+              function downloadPDF() {
+                document.querySelector('.share-buttons').style.display = 'none';
+                setTimeout(() => {
+                  window.print();
+                  setTimeout(() => {
+                    document.querySelector('.share-buttons').style.display = 'flex';
+                  }, 1000);
+                }, 100);
+              }
+              function shareWhatsApp() {
+                const text = encodeURIComponent('Invoice #${selectedInvoice.invoice_no} for ${selectedInvoice.buyer_name}\\nAmount: ₹${selectedInvoice.total_amount.toFixed(2)}\\nDate: ${formatDate(selectedInvoice.date)}\\n\\nView details: ' + window.location.href);
+                const url = 'https://wa.me/?text=' + text;
+                window.open(url, '_blank');
+              }
+              function shareEmail() {
+                const subject = encodeURIComponent('Invoice #${selectedInvoice.invoice_no} - ${selectedInvoice.buyer_name}');
+                const body = encodeURIComponent('Dear Sir/Madam,\\n\\nPlease find the invoice details below:\\n\\nInvoice #${selectedInvoice.invoice_no}\\nBuyer: ${selectedInvoice.buyer_name}\\nAmount: ₹${selectedInvoice.total_amount.toFixed(2)}\\nDate: ${formatDate(selectedInvoice.date)}\\n\\nTo download the PDF, please visit: ' + window.location.href + '\\n\\nBest regards');
+                const url = 'mailto:?subject=' + subject + '&body=' + body;
+                window.location.href = url;
+              }
+              function shareTelegram() {
+                const text = encodeURIComponent('Invoice #${selectedInvoice.invoice_no} for ${selectedInvoice.buyer_name}\\nAmount: ₹${selectedInvoice.total_amount.toFixed(2)}\\nDate: ${formatDate(selectedInvoice.date)}\\n\\nView: ' + window.location.href);
+                const url = 'https://t.me/share/url?url=' + encodeURIComponent(window.location.href) + '&text=' + text;
+                window.open(url, '_blank');
+              }
+              window.onload = function() {
+                if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                  document.body.style.padding = '10px';
+                  const buttons = document.querySelector('.share-buttons');
+                  buttons.style.position = 'relative';
+                  buttons.style.marginBottom = '20px';
+                }
+              };
+            </script>
+          </body>
+        </html>
+      `;
+
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+
+      setPdfLoading(false);
+
+    } catch (err) {
+      console.error("Error in PDF sharing:", err);
+      setPdfLoading(false);
+      alert("PDF sharing failed. Please try again.");
     }
   };
 
@@ -214,7 +345,6 @@ export default function InvoiceListPage() {
               <p className="text-gray-600 mt-1">Manage and track all your invoices</p>
             </div>
           </div>
-          
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <BackToHome />
             <CreateInvoiceButton />
@@ -273,7 +403,6 @@ export default function InvoiceListPage() {
                     </div>
                   </div>
                 </div>
-                
                 <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
                   {invoices.map((inv) => (
                     <div
@@ -295,19 +424,16 @@ export default function InvoiceListPage() {
                               {formatDate(inv.date)}
                             </span>
                           </div>
-                          
                           <div className="flex items-center gap-2 mb-2">
                             <h3 className="font-semibold text-gray-800 truncate">{inv.buyer_name}</h3>
                             <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                               {inv.items.length} items
                             </span>
                           </div>
-                          
                           <div className="flex items-center gap-3">
                             <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
                               ₹{inv.total_amount.toFixed(2)}
                             </span>
-                            
                             <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
                               inv.status === 'paid'
                                 ? 'bg-green-100 text-green-700'
@@ -327,7 +453,6 @@ export default function InvoiceListPage() {
                             </div>
                           </div>
                         </div>
-                        
                         {inv.status !== 'paid' && (
                           <div className="ml-4">
                             <button
@@ -357,31 +482,54 @@ export default function InvoiceListPage() {
                 </div>
               </div>
             </div>
-
             {/* Invoice Preview */}
             <div className="w-full lg:w-3/5">
               {selectedInvoice ? (
                 <div className="bg-white shadow rounded-lg">
-                  <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
+                  <div className="bg-gray-50 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <h2 className="font-medium text-gray-700 flex items-center">
                       <Eye className="w-4 h-4 mr-2" /> Invoice Preview
                     </h2>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      {/* Export to PDF Button */}
                       <button
-                        onClick={downloadPDFAlternative}
+                        onClick={exportToPDF}
                         disabled={pdfLoading}
-                        className={`flex items-center px-3 py-1 ${
+                        className={`flex items-center justify-center px-4 py-2 ${
                           pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                        } text-white text-sm rounded transition-colors`}
+                        } text-white text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium`}
+                        title="Download PDF to your device"
                       >
                         {pdfLoading ? (
                           <>
                             <span className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
-                            Generating...
+                            Processing...
                           </>
                         ) : (
                           <>
-                            <Printer className="w-4 h-4 mr-1" /> Download PDF
+                            <Download className="w-4 h-4 mr-2" />
+                            Export to PDF
+                          </>
+                        )}
+                      </button>
+                      {/* Share as PDF Button */}
+                      <button
+                        onClick={shareAsPDF}
+                        disabled={pdfLoading}
+                        className={`flex items-center justify-center px-4 py-2 ${
+                          pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                        } text-white text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium`}
+                        title="Share PDF via WhatsApp, Email, etc."
+                      >
+                        {pdfLoading ? (
+                          <>
+                            <span className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share as PDF
                           </>
                         )}
                       </button>
