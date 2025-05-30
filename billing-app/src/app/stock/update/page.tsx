@@ -32,13 +32,13 @@ export default function StockCRUDPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Store as string to avoid leading zero issues
   const [editProduct, setEditProduct] = useState<{ stock: string }>({ stock: "" });
-
-  const [newProduct, setNewProduct] = useState({ 
-    name: "", 
-    stock: 0, 
-    ratePerKg: 0, 
-    hsnCode: "" 
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    stock: "",
+    ratePerKg: "",
+    hsnCode: ""
   });
 
   const filteredProducts = products.filter((product) =>
@@ -87,7 +87,7 @@ export default function StockCRUDPage() {
       setError("Product name is required.");
       return false;
     }
-    if (product.stock <= 0) {
+    if (!product.stock || isNaN(Number(product.stock)) || Number(product.stock) <= 0) {
       setError("Quantity must be greater than 0.");
       return false;
     }
@@ -95,7 +95,7 @@ export default function StockCRUDPage() {
       setError("HSN Code is required.");
       return false;
     }
-    if (!product.ratePerKg || product.ratePerKg <= 0) {
+    if (!product.ratePerKg || isNaN(Number(product.ratePerKg)) || Number(product.ratePerKg) <= 0) {
       setError("Rate per KG is required.");
       return false;
     }
@@ -120,7 +120,7 @@ export default function StockCRUDPage() {
       });
       if (!res.ok) throw new Error("Failed to create product.");
       setSuccess("Product created successfully!");
-      setNewProduct({ name: "", stock: 0, ratePerKg: 0, hsnCode: "" });
+      setNewProduct({ name: "", stock: "", ratePerKg: "", hsnCode: "" });
       fetchProducts();
     } catch {
       setError("Failed to create product.");
@@ -129,31 +129,35 @@ export default function StockCRUDPage() {
   };
 
   const startEdit = (product: Product) => {
-  setEditId(product._id);
-  setEditProduct({ stock: "" }); // 0 means no change by default
-};
-
+    setEditId(product._id);
+    setEditProduct({ stock: "" });
+  };
 
   const cancelEdit = () => {
     setEditId(null);
-    setEditProduct({ stock: 0 });
+    setEditProduct({ stock: "" });
   };
 
   const handleEditSave = async (id: string) => {
     setSaving(true);
     setError("");
     setSuccess("");
+    const qty = Number(editProduct.stock);
+    if (editProduct.stock === "" || isNaN(qty)) {
+      setError("Please enter a valid number.");
+      setSaving(false);
+      return;
+    }
     try {
-      // Only update stock, no validation required
       const res = await fetch(`${API_BASE}/products/${id}/stock`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity: editProduct.stock }),
+        body: JSON.stringify({ quantity: qty }),
       });
       if (!res.ok) throw new Error("Failed to update stock.");
       setSuccess("Stock updated successfully!");
       setEditId(null);
-      setEditProduct({ stock: 0 });
+      setEditProduct({ stock: "" });
       await fetchProducts();
     } catch {
       setError("Failed to update stock.");
@@ -253,7 +257,11 @@ export default function StockCRUDPage() {
                   required
                   min="1"
                   value={newProduct.stock}
-                  onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    // Remove leading zeros except for '0'
+                    let val = e.target.value.replace(/^0+(?=\d)/, "");
+                    setNewProduct({ ...newProduct, stock: val });
+                  }}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
                   placeholder="Enter quantity"
                 />
@@ -268,7 +276,11 @@ export default function StockCRUDPage() {
                   min="0"
                   required
                   value={newProduct.ratePerKg}
-                  onChange={(e) => setNewProduct({ ...newProduct, ratePerKg: Number(e.target.value) || 0 })}
+                  onChange={(e) => {
+                    // Remove leading zeros except for '0'
+                    let val = e.target.value.replace(/^0+(?=\d)/, "");
+                    setNewProduct({ ...newProduct, ratePerKg: val });
+                  }}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
                   placeholder="Enter rate per kg"
                 />
@@ -330,100 +342,212 @@ export default function StockCRUDPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Product Name
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                      Stock Quantity
-                    </th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-  {filteredProducts.map((product) =>
-    editId === product._id ? (
-      <tr key={product._id} className="bg-blue-50">
-        <td className="px-4 sm:px-6 py-3 sm:py-4">
-          <div className="font-medium text-gray-900 text-sm sm:text-base">{product.name}</div>
-        </td>
-        <td className="px-4 sm:px-6 py-3 sm:py-4">
-          <label className="block text-xs text-gray-500 mb-1">
-            Change in Stock (use negative for removal)
-          </label>
-          <input
-            type="number"
-            value={editProduct.stock}
-            onChange={(e) => setEditProduct({ ...editProduct, stock: Number(e.target.value) || 0 })}
-            className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black"
-          />
-          <div className="text-xs text-gray-500 mt-1">
-            Current stock: {product.stock}
-          </div>
-        </td>
-        <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => handleEditSave(product._id)}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
-            >
-              <Save className="w-3 h-3 sm:w-4 sm:h-4" />
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={cancelEdit}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
-            >
-              <X className="w-3 h-3 sm:w-4 sm:h-4" />
-              Cancel
-            </button>
-          </div>
-        </td>
-      </tr>
+            <>
+              {/* Mobile Card View - Hidden on lg and up */}
+              <div className="block lg:hidden">
+                <div className="divide-y divide-gray-200">
+                  {filteredProducts.map((product) =>
+                    editId === product._id ? (
+                      <div key={product._id} className="p-4 bg-blue-50">
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold text-gray-900 text-base">{product.name}</h3>
+                              <p className="text-sm text-gray-500 mt-1">HSN: {product.hsnCode}</p>
+                              <p className="text-sm text-gray-500">Rate: ₹{product.ratePerKg}/kg</p>
+                            </div>
+                            <div className="bg-white px-3 py-1 rounded-full border">
+                              <span className="text-sm font-medium text-gray-700">Stock: {product.stock}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-white p-3 rounded-lg border">
+                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                              Change in Stock (use negative for removal)
+                            </label>
+                            <input
+                              type="number"
+                              value={editProduct.stock}
+                              onChange={(e) => {
+                                let val = e.target.value.replace(/^0+(?=\d)/, "");
+                                setEditProduct({ ...editProduct, stock: val });
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-black"
+                              placeholder="Enter stock change"
+                            />
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleEditSave(product._id)}
+                              disabled={saving}
+                              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 text-sm"
+                            >
+                              <Save className="w-4 h-4" />
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEdit}
+                              disabled={saving}
+                              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium transition-colors disabled:opacity-50 text-sm"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
-                       <tr key={product._id} className="hover:bg-gray-50 transition-colors">
-        <td className="px-4 sm:px-6 py-3 sm:py-4">
-          <div className="font-medium text-gray-900 text-sm sm:text-base">{product.name}</div>
-        </td>
-        <td className="px-4 sm:px-6 py-3 sm:py-4">
-          <div className="text-gray-900 font-medium text-sm sm:text-base">
-            {product.stock}
-          </div>
-        </td>
-        <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
-          <div className="flex justify-end gap-1 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => startEdit(product)}
-              className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg font-medium transition-colors text-xs sm:text-sm"
-            >
-              <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDelete(product._id)}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
-            >
-              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-        </td>
-        </tr>
+                      <div key={product._id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 text-base">{product.name}</h3>
+                            <div className="flex flex-wrap gap-3 mt-2">
+                              <span className="text-xs text-gray-500">HSN: {product.hsnCode}</span>
+                              <span className="text-xs text-gray-500">Rate: ₹{product.ratePerKg}/kg</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-3">
+                            <div className="bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200">
+                              <span className="text-sm font-medium text-indigo-700">Stock: {product.stock}</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs text-gray-400">
+                            ID: {product._id.slice(-8)}
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(product)}
+                              className="inline-flex items-center gap-1 px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg font-medium transition-colors text-sm"
+                              title="Edit Stock"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(product._id)}
+                              disabled={saving}
+                              className="inline-flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors disabled:opacity-50 text-sm"
+                              title="Delete Product"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     )
                   )}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+
+              {/* Desktop Table View - Hidden on mobile */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        Product Name
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                        Stock Quantity
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredProducts.map((product) =>
+                      editId === product._id ? (
+                        <tr key={product._id} className="bg-blue-50">
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="font-medium text-gray-900 text-sm sm:text-base">{product.name}</div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <label className="block text-xs text-gray-500 mb-1">
+                              Change in Stock (use negative for removal)
+                            </label>
+                            <input
+                              type="number"
+                              value={editProduct.stock}
+                              onChange={(e) => {
+                                let val = e.target.value.replace(/^0+(?=\d)/, "");
+                                setEditProduct({ ...editProduct, stock: val });
+                              }}
+                              className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black"
+                              placeholder="Enter stock change"
+                            />
+                            <div className="text-xs text-gray-500 mt-1">
+                              Current stock: {product.stock}
+                            </div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditSave(product._id)}
+                                disabled={saving}
+                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
+                              >
+                                <Save className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={cancelEdit}
+                                disabled={saving}
+                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
+                              >
+                                <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={product._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="font-medium text-gray-900 text-sm sm:text-base">{product.name}</div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="text-gray-900 font-medium text-sm sm:text-base">
+                              {product.stock}
+                            </div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
+                            <div className="flex justify-end gap-1 sm:gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(product)}
+                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg font-medium transition-colors text-xs sm:text-sm"
+                              >
+                                <Edit2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(product._id)}
+                                disabled={saving}
+                                className="inline-flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors disabled:opacity-50 text-xs sm:text-sm"
+                              >
+                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
