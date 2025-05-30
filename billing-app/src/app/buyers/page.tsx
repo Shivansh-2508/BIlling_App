@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Plus, Loader2, AlertCircle, CheckCircle, Trash2, Edit2, Save, X } from "lucide-react";
+import { Plus, Loader2, AlertCircle, CheckCircle, Trash2, Edit2, Save, X, Search } from "lucide-react";
 
 interface Buyer {
   _id: string;
@@ -20,6 +20,7 @@ export default function BuyersPage() {
   const [success, setSuccess] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editBuyer, setEditBuyer] = useState({ name: "", address: "", gstin: "" });
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchBuyers = async () => {
     setLoading(true);
@@ -30,7 +31,6 @@ export default function BuyersPage() {
       const data = await res.json();
       setBuyers(data);
     } catch (err) {
-      console.error("Error fetching buyers:", err);
       setError("Failed to load buyers.");
     }
     setLoading(false);
@@ -119,6 +119,14 @@ export default function BuyersPage() {
     setSaving(false);
   };
 
+  // Filtered buyers based on search term
+  const filteredBuyers = buyers.filter(
+    (buyer) =>
+      buyer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      buyer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      buyer.gstin.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
@@ -205,25 +213,40 @@ export default function BuyersPage() {
 
         {/* Buyers List */}
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Header with search bar */}
           <div className="p-4 sm:p-6 border-b border-gray-200">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900">Buyers ({buyers.length})</h2>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                Buyers ({filteredBuyers.length})
+              </h2>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder="Search buyers..."
+                  className="pl-9 sm:pl-10 pr-4 py-2 sm:py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all w-full sm:w-64 text-sm sm:text-base placeholder:text-gray-500 text-black"
+                />
+              </div>
+            </div>
           </div>
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 sm:py-16">
               <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-indigo-600 mb-3 sm:mb-4" />
               <p className="text-gray-500 text-sm sm:text-base">Loading buyers...</p>
             </div>
-          ) : buyers.length === 0 ? (
+          ) : filteredBuyers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-black px-4">
               <p className="text-base sm:text-lg font-medium mb-2 text-center">No buyers found</p>
-              <p className="text-xs sm:text-sm text-center">Add your first buyer to get started</p>
+              <p className="text-xs sm:text-sm text-center">Try a different search or add a new buyer</p>
             </div>
           ) : (
             <>
               {/* Mobile Card View - Hidden on md and up */}
               <div className="block md:hidden">
                 <div className="divide-y divide-gray-200">
-                  {buyers.map((buyer) =>
+                  {filteredBuyers.map((buyer) =>
                     editId === buyer._id ? (
                       <div key={buyer._id} className="p-4 bg-blue-50 rounded-lg mb-2">
                         <div className="mb-3">
@@ -327,7 +350,7 @@ export default function BuyersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {buyers.map((buyer) =>
+                    {filteredBuyers.map((buyer) =>
                       editId === buyer._id ? (
                         <tr key={buyer._id} className="bg-blue-50">
                           <td className="px-4 sm:px-6 py-3 sm:py-4">
@@ -335,7 +358,7 @@ export default function BuyersPage() {
                               type="text"
                               value={editBuyer.name}
                               onChange={e => setEditBuyer({ ...editBuyer, name: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-black"
                               placeholder="Name"
                             />
                           </td>
@@ -344,7 +367,7 @@ export default function BuyersPage() {
                               type="text"
                               value={editBuyer.address}
                               onChange={e => setEditBuyer({ ...editBuyer, address: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-black"
                               placeholder="Address"
                             />
                           </td>
@@ -353,7 +376,7 @@ export default function BuyersPage() {
                               type="text"
                               value={editBuyer.gstin}
                               onChange={e => setEditBuyer({ ...editBuyer, gstin: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-black"
                               placeholder="GSTIN"
                             />
                           </td>
