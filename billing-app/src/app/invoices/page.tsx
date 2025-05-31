@@ -54,7 +54,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('http://localhost:5000/invoices')
+    fetch('https://billing-app-onzk.onrender.com/invoices')
       .then((res) => {
         if (!res.ok) {
           throw new Error('Failed to fetch invoices');
@@ -459,7 +459,7 @@ export default function InvoiceListPage() {
                               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${inv._id}/status`, {
+                                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${inv._id}/status`, {
                                   method: 'PUT',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ status: 'paid' }),
