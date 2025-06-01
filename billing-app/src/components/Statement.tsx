@@ -192,6 +192,13 @@ export default function PrintableStatement({ apiBaseUrl }) {
         14,
         finalY + 12
       );
+      doc.setTextColor(220, 38, 38); // Red color for due amount
+      doc.text(
+        `Due Amount: ₹${calculateDueAmount(statement).toFixed(2)}`,
+        14,
+        finalY + 24
+      );
+      doc.setTextColor(0, 0, 0);
     }
 
     return doc;
@@ -299,11 +306,16 @@ export default function PrintableStatement({ apiBaseUrl }) {
               `).join('')}
             </tbody>
             <tfoot>
-              <tr class="total-row">
-                <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
-                <td><strong>₹${statement.total_amount?.toFixed(2) || '0.00'}</strong></td>
-                <td></td>
-              </tr>
+                <tr class="total-row">
+                  <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
+                  <td><strong>₹${statement.total_amount?.toFixed(2) || '0.00'}</strong></td>
+                  <td></td>
+                </tr>
+                <tr class="total-row" style="background: #fef2f2;">
+                  <td colspan="3" style="text-align: right; color: #dc2626;"><strong>Due Amount:</strong></td>
+                  <td><strong style="color: #dc2626;">₹${calculateDueAmount(statement).toFixed(2)}</strong></td>
+                  <td></td>
+                </tr>
             </tfoot>
           </table>
         `}
@@ -392,6 +404,16 @@ export default function PrintableStatement({ apiBaseUrl }) {
       return sum + (isNaN(qty) ? 0 : qty);
     }, 0);
   };
+
+  const calculateDueAmount = (statement) => {
+  if (!statement || !statement.invoices) return statement?.total_amount || 0;
+  
+  const paidAmount = statement.invoices.reduce((sum, invoice) => {
+    return sum + (invoice.status === 'paid' ? (invoice.total_amount || 0) : 0);
+  }, 0);
+  
+  return (statement.total_amount || 0) - paidAmount;
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -776,14 +798,21 @@ export default function PrintableStatement({ apiBaseUrl }) {
                             ))}
                           </tbody>
                           <tfoot className="bg-gradient-to-r from-gray-50 to-gray-100">
-                            <tr>
-                              <td colSpan={3} className="px-6 py-4 text-right text-sm font-bold text-gray-900">Total Amount:</td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-lg font-bold text-emerald-600">₹{statement.total_amount?.toFixed(2) || '0.00'}</span>
-                              </td>
-                              <td></td>
-                            </tr>
-                          </tfoot>
+                                    <tr>
+                                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-bold text-gray-900">Total Amount:</td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-lg font-bold text-emerald-600">₹{statement.total_amount?.toFixed(2) || '0.00'}</span>
+                                      </td>
+                                      <td></td>
+                                    </tr>
+                                    <tr className="bg-gradient-to-r from-orange-50 to-red-50">
+                                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-bold text-gray-900">Due Amount:</td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className="text-lg font-bold text-red-600">₹{calculateDueAmount(statement).toFixed(2)}</span>
+                                      </td>
+                                      <td></td>
+                                    </tr>
+                                  </tfoot>  
                         </table>
                       </div>
                       {/* Mobile Card View */}
@@ -809,12 +838,16 @@ export default function PrintableStatement({ apiBaseUrl }) {
                             </div>
                           ))}
                           {/* Mobile Total */}
-                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-bold text-gray-900">Total Amount:</span>
-                              <span className="text-lg font-bold text-emerald-600">₹{statement.total_amount?.toFixed(2) || '0.00'}</span>
-                            </div>
+                          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-gray-900">Total Amount:</span>
+                            <span className="text-lg font-bold text-emerald-600">₹{statement.total_amount?.toFixed(2) || '0.00'}</span>
                           </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                            <span className="text-sm font-bold text-gray-900">Due Amount:</span>
+                            <span className="text-lg font-bold text-red-600">₹{calculateDueAmount(statement).toFixed(2)}</span>
+                          </div>
+                        </div>
                         </div>
                       </div>
                     </>
@@ -837,3 +870,4 @@ export default function PrintableStatement({ apiBaseUrl }) {
     </div>
   );
 }
+
