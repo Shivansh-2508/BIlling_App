@@ -26,7 +26,7 @@ export default function BackToHome({ variant = 'text', className = '' }: BackToH
             d="M11 17l-5-5m0 0l5-5m-5 5h12"
           />
         </svg>
-        Back to Home
+        {/* Back to Home */}
       </Link>
     );
   }
@@ -50,7 +50,7 @@ export default function BackToHome({ variant = 'text', className = '' }: BackToH
           d="M11 17l-5-5m0 0l5-5m-5 5h12"
         />
       </svg>
-      Back to Home
+      {/* Back to Home */}
     </Link>
   );
 }

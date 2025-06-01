@@ -126,83 +126,109 @@ export default function PrintableStatement({ apiBaseUrl }) {
 
   // --- PDF GENERATION USING jsPDF (dynamic import) ---
   const generatePDF = async () => {
-    if (!statement) return null;
-    const jsPDF = (await import("jspdf")).default;
-    await import("jspdf-autotable");
-    const doc = new jsPDF();
+  if (!statement) return null;
+  const jsPDF = (await import("jspdf")).default;
+  const doc = new jsPDF();
 
-    // Title
-    doc.setFontSize(18);
-    doc.text("Buyer Statement", 14, 16);
+  // Title
+  doc.setFontSize(18);
+  doc.text("Buyer Statement", 14, 16);
 
-    // Buyer Info
+  // Buyer Info
+  doc.setFontSize(12);
+  doc.text(`Buyer: ${statement.buyer}`, 14, 28);
+  if (statement.buyer_gstin) {
+    doc.text(`GSTIN: ${statement.buyer_gstin}`, 14, 36);
+  }
+  doc.text(
+    `Total Invoices: ${statement.invoice_count}`,
+    14,
+    statement.buyer_gstin ? 44 : 36
+  );
+  doc.text(
+    `Total Amount: Rs. ${statement.total_amount?.toFixed(2) || "0.00"}`,
+    14,
+    statement.buyer_gstin ? 52 : 44
+  );
+
+  let y = statement.buyer_gstin ? 60 : 52;
+  if (startDate || endDate) {
+    if (startDate) {
+      doc.text(`From: ${new Date(startDate).toLocaleDateString("en-IN")}`, 14, y);
+      y += 8;
+    }
+    if (endDate) {
+      doc.text(`To: ${new Date(endDate).toLocaleDateString("en-IN")}`, 14, y);
+      y += 8;
+    }
+  }
+
+  // Section title
+  y += 6;
+  doc.setFontSize(14);
+  doc.text("Invoice Details", 14, y);
+  y += 10;
+
+  // Table columns
+  const columnWidths = [40, 40, 30, 50, 30];
+  const startX = 14;
+  const headers = ["Invoice No", "Date", "Items", "Amount", "Status"];
+
+  if (!statement.invoices || statement.invoices.length === 0) {
     doc.setFontSize(12);
-    doc.text(`Buyer: ${statement.buyer}`, 14, 28);
-    if (statement.buyer_gstin) {
-      doc.text(`GSTIN: ${statement.buyer_gstin}`, 14, 36);
-    }
-    doc.text(`Total Invoices: ${statement.invoice_count}`, 14, statement.buyer_gstin ? 44 : 36);
-    doc.text(`Total Amount: ₹${statement.total_amount?.toFixed(2) || '0.00'}`, 14, statement.buyer_gstin ? 52 : 44);
+    doc.text(
+      "No invoices found for this buyer within the selected date range.",
+      startX,
+      y + 10
+    );
+  } else {
+    // Draw header background and headings for all columns
+    doc.setFillColor(33, 150, 243); // blue
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    let colX = startX;
+    headers.forEach((text, i) => {
+      doc.rect(colX, y, columnWidths[i], 10, "F"); // filled rect
+      doc.text(text, colX + 2, y + 7);
+      colX += columnWidths[i];
+    });
 
-    let y = statement.buyer_gstin ? 60 : 52;
-    if (startDate || endDate) {
-      if (startDate) {
-        doc.text(`From: ${new Date(startDate).toLocaleDateString('en-IN')}`, 14, y);
-        y += 8;
-      }
-      if (endDate) {
-        doc.text(`To: ${new Date(endDate).toLocaleDateString('en-IN')}`, 14, y);
-        y += 8;
-      }
-    }
+    doc.setTextColor(0, 0, 0);
+    y += 10;
 
-    // Table
-    y += 6;
-    doc.setFontSize(14);
-    doc.text("Invoice Details", 14, y);
-    y += 4;
-
-    if (!statement.invoices || statement.invoices.length === 0) {
-      doc.setFontSize(12);
-      doc.text("No invoices found for this buyer within the selected date range.", 14, y + 10);
-    } else {
-      const tableColumn = ["Invoice No", "Date", "Items", "Amount (₹)", "Status"];
-      const tableRows = statement.invoices.map((invoice) => [
+    // Draw invoice rows
+    statement.invoices.forEach((invoice) => {
+      let colX = startX;
+      const values = [
         invoice.invoice_no,
         formatDate(invoice.date),
-        invoice.items?.length || 0,
-        `₹${invoice.total_amount?.toFixed(2) || '0.00'}`,
-        (invoice.status || 'unpaid').toUpperCase(),
-      ]);
-      // @ts-ignore
-      doc.autoTable({
-        head: [tableColumn],
-        body: tableRows,
-        startY: y + 6,
-        styles: { fontSize: 11 },
-        headStyles: { fillColor: [33, 150, 243] },
-        margin: { left: 14, right: 14 },
+        String(invoice.items?.length || 0),
+        `Rs. ${invoice.total_amount?.toFixed(2) || "0.00"}`,
+        (invoice.status || "unpaid").toUpperCase(),
+      ];
+
+      values.forEach((text, i) => {
+        doc.rect(colX, y, columnWidths[i], 10);
+        doc.text(text, colX + 2, y + 7);
+        colX += columnWidths[i];
       });
 
-      // Total row
-      const finalY = (doc).lastAutoTable.finalY || y + 20;
-      doc.setFontSize(13);
-      doc.text(
-        `Total Amount: ₹${statement.total_amount?.toFixed(2) || '0.00'}`,
-        14,
-        finalY + 12
-      );
-      doc.setTextColor(220, 38, 38); // Red color for due amount
-      doc.text(
-        `Due Amount: ₹${calculateDueAmount(statement).toFixed(2)}`,
-        14,
-        finalY + 24
-      );
-      doc.setTextColor(0, 0, 0);
-    }
+      y += 10;
+    });
 
-    return doc;
-  };
+    // Total and Due Amount
+    y += 10;
+    doc.setFontSize(13);
+    doc.text(`Total Amount: Rs. ${statement.total_amount?.toFixed(2) || "0.00"}`, startX, y);
+
+    y += 12;
+    doc.setTextColor(220, 38, 38); // Red for due
+    doc.text(`Due Amount: Rs. ${calculateDueAmount(statement).toFixed(2)}`, startX, y);
+    doc.setTextColor(0, 0, 0); // Reset to black
+  }
+
+  return doc;
+};
 
   // Export PDF function (browser print dialog)
   const generatePDFContent = () => {
@@ -271,7 +297,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
           <p><strong>Buyer:</strong> ${statement.buyer}</p>
           ${statement.buyer_gstin ? `<p><strong>GSTIN:</strong> ${statement.buyer_gstin}</p>` : ''}
           <p><strong>Total Invoices:</strong> ${statement.invoice_count}</p>
-          <p><strong>Total Amount:</strong> ₹${statement.total_amount?.toFixed(2) || '0.00'}</p>
+          <p><strong>Total Amount:</strong> Rs.${statement.total_amount?.toFixed(2) || '0.00'}</p>
           ${(startDate || endDate) ? `
             <div>
               ${startDate ? `<p><strong>From:</strong> ${new Date(startDate).toLocaleDateString('en-IN')}</p>` : ''}
@@ -325,30 +351,27 @@ export default function PrintableStatement({ apiBaseUrl }) {
   };
 
   const handleExportPDF = async () => {
-    if (!statement) return;
-    setIsGeneratingPDF(true);
-    try {
-      const htmlContent = generatePDFContent();
-      const blob = new Blob([htmlContent], { type: 'text/html' });
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('Please allow popups for this website to generate PDF.');
-        return;
-      }
-      printWindow.document.write(htmlContent);
-      printWindow.document.close();
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      };
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
+  if (!statement) return;
+  setIsGeneratingPDF(true);
+  try {
+    const doc = await generatePDF();
+    if (!doc) throw new Error("Could not generate PDF");
+    const pdfBlob = doc.output("blob");
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Statement_${statement.buyer}_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Error generating PDF. Please try again.');
+  } finally {
+    setIsGeneratingPDF(false);
+  }
+};
 
   const handleSharePDF = async () => {
   if (!statement) return;
@@ -438,8 +461,8 @@ export default function PrintableStatement({ apiBaseUrl }) {
         <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl mb-8 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
             <div className="flex items-center gap-3">
-              <Filter className="w-6 h-6 text-white" />
-              <h2 className="text-xl font-semibold text-white">Filter Options</h2>
+              {/* <Filter className="w-6 h-6 text-white" /> */}
+              {/* <h2 className="text-xl font-semibold text-white">Filter Options</h2> */}
             </div>
             <p className="text-blue-100 mt-1">Select buyer and date range to generate statement</p>
           </div>
