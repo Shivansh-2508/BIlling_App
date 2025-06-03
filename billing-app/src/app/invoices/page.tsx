@@ -51,6 +51,7 @@ export default function InvoiceListPage() {
   const [error, setError] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const exportButtonsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -413,7 +414,20 @@ export default function InvoiceListPage() {
                           ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 shadow-inner'
                           : 'hover:bg-gradient-to-r hover:from-blue-25 hover:to-indigo-25'
                       }`}
-                      onClick={() => setSelectedInvoice(inv)}
+                      onClick={() => {
+  setSelectedInvoice(inv);
+  
+  // Auto-scroll to export buttons on mobile devices
+  const isMobile = window.innerWidth <= 1024; // lg breakpoint
+  if (isMobile && exportButtonsRef.current) {
+    setTimeout(() => {
+      exportButtonsRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100); // Small delay to ensure state update completes
+  }
+}}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
@@ -487,7 +501,7 @@ export default function InvoiceListPage() {
             <div className="w-full lg:w-3/5">
               {selectedInvoice ? (
                 <div className="bg-white shadow rounded-lg">
-                  <div className="bg-gray-50 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div ref={exportButtonsRef} className="bg-gray-50 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <h2 className="font-medium text-gray-700 flex items-center">
                       <Eye className="w-4 h-4 mr-2" /> Invoice Preview
                     </h2>
