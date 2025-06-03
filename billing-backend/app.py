@@ -1,10 +1,13 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, jsonify
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime
 from bson import ObjectId
+import io
+import asyncio
+from playwright.async_api import async_playwright
 
 load_dotenv()
 
@@ -192,6 +195,35 @@ def delete_invoice(invoice_id):
         print(f"Error deleting invoice {invoice_id}:", e)
         return jsonify({"error": "Invalid invoice ID or server error"}), 400
 
+@app.route('/export-invoice-pdf', methods=['POST'])
+def export_invoice_pdf():
+    data = request.get_json()
+    html_content = data.get('html')
+    file_name = data.get('file_name', 'invoice.pdf')
+
+    if not html_content:
+        return jsonify({'error': 'No HTML provided'}), 400
+
+    pdf_bytes = asyncio.run(html_to_pdf_playwright(html_content))
+    pdf_file = io.BytesIO(pdf_bytes)
+    pdf_file.seek(0)
+
+    return send_file(
+        pdf_file,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=file_name
+    )
+
+async def html_to_pdf_playwright(html_content):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.set_content(html_content, wait_until="networkidle")
+        pdf_bytes = await page.pdf(format="A4", print_background=True)
+        await browser.close()
+        return pdf_bytes
+    
 # --- Buyer Routes ---
 
 # GET: All buyers (for dropdown)

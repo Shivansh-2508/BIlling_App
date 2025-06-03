@@ -54,7 +54,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('https://billing-app-onzk.onrender.com/invoices')
+    fetch('http://192.168.29.201:5000/invoices')
       .then((res) => {
         if (!res.ok) {
           throw new Error('Failed to fetch invoices');
@@ -105,79 +105,80 @@ export default function InvoiceListPage() {
 
   // Export to PDF (Direct Download) - keeps original InvoicePreview UI
   const exportToPDF = async () => {
-    if (!previewRef.current || !selectedInvoice) return;
+  if (!previewRef.current || !selectedInvoice) return;
+  setPdfLoading(true);
 
-    try {
-      setPdfLoading(true);
+  try {
+    // 1. Get the HTML of the invoice preview (with styles)
+    const invoiceContent = previewRef.current.innerHTML;
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('Please allow popups to download PDF');
-        setPdfLoading(false);
-        return;
-      }
-
-      // Use the original InvoicePreview HTML and styles
-      const invoiceContent = previewRef.current.innerHTML;
-
-      // Copy all stylesheets from the main document
-      let styles = '';
-      Array.from(document.styleSheets).forEach((styleSheet: any) => {
-        try {
-          if (styleSheet.href) {
-            styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
-          } else if (styleSheet.cssRules) {
-            styles += '<style>';
-            Array.from(styleSheet.cssRules).forEach((rule: any) => {
-              styles += rule.cssText;
-            });
-            styles += '</style>';
-          }
-        } catch (e) {
-          // Ignore CORS issues
+    // 2. Collect all stylesheets as <style> tags
+    let styles = '';
+    Array.from(document.styleSheets).forEach((styleSheet: any) => {
+      try {
+        if (styleSheet.href) {
+          styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
+        } else if (styleSheet.cssRules) {
+          styles += '<style>';
+          Array.from(styleSheet.cssRules).forEach((rule: any) => {
+            styles += rule.cssText;
+          });
+          styles += '</style>';
         }
-      });
+      } catch (e) {
+        // Ignore CORS issues
+      }
+    });
 
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Invoice_${selectedInvoice.invoice_no}</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            ${styles}
-            <style>
-              @page { size: A4 portrait; margin: 10mm; }
-              body { background: white; }
-              .print-area { background: white; padding: 0; }
-              @media print {
-                body { -webkit-print-color-adjust: exact; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="print-area">${invoiceContent}</div>
-          </body>
-        </html>
-      `;
+    // 3. Build full HTML for PDF rendering
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${styles}
+          <style>
+            body { background: white; margin: 0; }
+            .print-area { background: white; padding: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="print-area">${invoiceContent}</div>
+        </body>
+      </html>
+    `;
 
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
+    // 4. Send to backend for PDF generation
+    const response = await fetch('http://192.168.29.201:5000/export-invoice-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        html,
+        file_name: `Invoice_${selectedInvoice.invoice_no}.pdf`
+      }),
+    });
 
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-          setPdfLoading(false);
-        }, 500);
-      };
+    if (!response.ok) throw new Error('Failed to generate PDF');
 
-    } catch (err) {
-      console.error("Error in PDF export:", err);
-      setPdfLoading(false);
-      alert("PDF export failed. Please try again.");
-    }
-  };
+    // 5. Download the PDF
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Invoice_${selectedInvoice.invoice_no}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+  } catch (err) {
+    alert('PDF export failed. Please try again.');
+    console.error(err);
+  } finally {
+    setPdfLoading(false);
+  }
+};
 
   // Share as PDF (opens a new window with share/download options, keeps original InvoicePreview UI)
   const shareAsPDF = async () => {
@@ -364,7 +365,7 @@ export default function InvoiceListPage() {
               <XCircle className="w-5 h-5 text-red-500" />
               <div>
                 <p className="font-medium">{error}</p>
-                <p className="text-sm text-red-600 mt-1">Please ensure your API server is running at https://billing-app-onzk.onrender.com</p>
+                <p className="text-sm text-red-600 mt-1">Please ensure your API server is running at http://192.168.29.201:5000</p>
               </div>
             </div>
           </div>
@@ -459,7 +460,7 @@ export default function InvoiceListPage() {
                               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${inv._id}/status`, {
+                                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://192.168.29.201:5000'}/invoices/${inv._id}/status`, {
                                   method: 'PUT',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ status: 'paid' }),

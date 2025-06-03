@@ -9,7 +9,7 @@ interface Buyer {
   gstin: string;
 }
 
-const API_BASE = "https://billing-app-onzk.onrender.com";
+const API_BASE = "http://192.168.29.201:5000";
 
 export default function BuyersPage() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);

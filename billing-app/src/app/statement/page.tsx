@@ -6,7 +6,7 @@ import Statement from "@/components/Statement";
 
 export default function StatementPage() {
   // Define the API base URL - ideally from environment variables
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://billing-app-onzk.onrender.com';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.29.201:5000';
   
   return <Statement apiBaseUrl={API_BASE_URL} />;
 }
