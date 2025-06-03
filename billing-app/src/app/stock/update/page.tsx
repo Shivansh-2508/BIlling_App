@@ -21,7 +21,7 @@ interface Product {
   hsnCode?: string;
 }
 
-const API_BASE = "http://192.168.29.201:5000";
+const API_BASE = "https://billing-app-onzk.onrender.com";
 
 export default function StockCRUDPage() {
   const [products, setProducts] = useState<Product[]>([]);
