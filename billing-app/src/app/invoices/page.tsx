@@ -51,6 +51,7 @@ export default function InvoiceListPage() {
   const [error, setError] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const exportButtonsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -105,79 +106,80 @@ export default function InvoiceListPage() {
 
   // Export to PDF (Direct Download) - keeps original InvoicePreview UI
   const exportToPDF = async () => {
-    if (!previewRef.current || !selectedInvoice) return;
+  if (!previewRef.current || !selectedInvoice) return;
+  setPdfLoading(true);
 
-    try {
-      setPdfLoading(true);
+  try {
+    // 1. Get the HTML of the invoice preview (with styles)
+    const invoiceContent = previewRef.current.innerHTML;
 
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('Please allow popups to download PDF');
-        setPdfLoading(false);
-        return;
-      }
-
-      // Use the original InvoicePreview HTML and styles
-      const invoiceContent = previewRef.current.innerHTML;
-
-      // Copy all stylesheets from the main document
-      let styles = '';
-      Array.from(document.styleSheets).forEach((styleSheet: any) => {
-        try {
-          if (styleSheet.href) {
-            styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
-          } else if (styleSheet.cssRules) {
-            styles += '<style>';
-            Array.from(styleSheet.cssRules).forEach((rule: any) => {
-              styles += rule.cssText;
-            });
-            styles += '</style>';
-          }
-        } catch (e) {
-          // Ignore CORS issues
+    // 2. Collect all stylesheets as <style> tags
+    let styles = '';
+    Array.from(document.styleSheets).forEach((styleSheet: any) => {
+      try {
+        if (styleSheet.href) {
+          styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
+        } else if (styleSheet.cssRules) {
+          styles += '<style>';
+          Array.from(styleSheet.cssRules).forEach((rule: any) => {
+            styles += rule.cssText;
+          });
+          styles += '</style>';
         }
-      });
+      } catch (e) {
+        // Ignore CORS issues
+      }
+    });
 
-      const printHTML = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Invoice_${selectedInvoice.invoice_no}</title>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            ${styles}
-            <style>
-              @page { size: A4 portrait; margin: 10mm; }
-              body { background: white; }
-              .print-area { background: white; padding: 0; }
-              @media print {
-                body { -webkit-print-color-adjust: exact; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="print-area">${invoiceContent}</div>
-          </body>
-        </html>
-      `;
+    // 3. Build full HTML for PDF rendering
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${styles}
+          <style>
+            body { background: white; margin: 0; }
+            .print-area { background: white; padding: 0; }
+          </style>
+        </head>
+        <body>
+          <div class="print-area">${invoiceContent}</div>
+        </body>
+      </html>
+    `;
 
-      printWindow.document.write(printHTML);
-      printWindow.document.close();
+    // 4. Send to backend for PDF generation
+    const response = await fetch('https://billing-app-onzk.onrender.com/export-invoice-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        html,
+        file_name: `Invoice_${selectedInvoice.invoice_no}.pdf`
+      }),
+    });
 
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-          setPdfLoading(false);
-        }, 500);
-      };
+    if (!response.ok) throw new Error('Failed to generate PDF');
 
-    } catch (err) {
-      console.error("Error in PDF export:", err);
-      setPdfLoading(false);
-      alert("PDF export failed. Please try again.");
-    }
-  };
+    // 5. Download the PDF
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Invoice_${selectedInvoice.invoice_no}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+  } catch (err) {
+    alert('PDF export failed. Please try again.');
+    console.error(err);
+  } finally {
+    setPdfLoading(false);
+  }
+};
 
   // Share as PDF (opens a new window with share/download options, keeps original InvoicePreview UI)
   const shareAsPDF = async () => {
@@ -412,7 +414,20 @@ export default function InvoiceListPage() {
                           ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 shadow-inner'
                           : 'hover:bg-gradient-to-r hover:from-blue-25 hover:to-indigo-25'
                       }`}
-                      onClick={() => setSelectedInvoice(inv)}
+                      onClick={() => {
+  setSelectedInvoice(inv);
+  
+  // Auto-scroll to export buttons on mobile devices
+  const isMobile = window.innerWidth <= 1024; // lg breakpoint
+  if (isMobile && exportButtonsRef.current) {
+    setTimeout(() => {
+      exportButtonsRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100); // Small delay to ensure state update completes
+  }
+}}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
@@ -486,7 +501,7 @@ export default function InvoiceListPage() {
             <div className="w-full lg:w-3/5">
               {selectedInvoice ? (
                 <div className="bg-white shadow rounded-lg">
-                  <div className="bg-gray-50 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div ref={exportButtonsRef} className="bg-gray-50 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <h2 className="font-medium text-gray-700 flex items-center">
                       <Eye className="w-4 h-4 mr-2" /> Invoice Preview
                     </h2>
