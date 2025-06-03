@@ -45,7 +45,8 @@ def get_invoices():
         "subtotal": 1,
         "cgst": 1,
         "sgst": 1,
-        "total_amount": 1
+        "total_amount": 1,
+        "status": 1
     }))
     all_invoices = [convert_objectid(inv) for inv in all_invoices]
     return jsonify(all_invoices)
@@ -109,13 +110,30 @@ def add_invoice():
             'subtotal': data['subtotal'],
             'cgst': data['cgst'],
             'sgst': data['sgst'],
-            'total_amount': data['total_amount']
+            'total_amount': data['total_amount'],
+            'status': 'unpaid'
         }
 
         result = invoices.insert_one(invoice_data)
         print(f"Invoice saved with ID: {result.inserted_id}")
         
+        # --- Deduct stock for each product in the invoice ---
+        for item in data['items']:
+            product_name = item.get('product_name')
+            qty_to_deduct = float(item.get('packing_qty', 0)) * float(item.get('no_of_units', 0))
+            if product_name and qty_to_deduct > 0:
+                # Find the product by name
+                product = products.find_one({"name": product_name})
+                if product:
+                    new_stock = float(product.get('stock_quantity', 0)) - qty_to_deduct
+                    products.update_one(
+                        {"_id": product["_id"]},
+                        {"$set": {"stock_quantity": new_stock}}
+                    )
+                    print(f"Deducted {qty_to_deduct} from {product_name}, new stock: {new_stock}")
+
         return jsonify({'message': 'Invoice saved', 'id': str(result.inserted_id)}), 201
+
         
     except Exception as e:
         print('Error in /invoices:', e)
@@ -144,6 +162,24 @@ def update_invoice(invoice_id):
         print(f"Error updating invoice {invoice_id}:", e)
         return jsonify({"error": "Invalid invoice ID or server error"}), 400
 
+@app.route('/invoices/<invoice_id>/status', methods=['PUT'])
+def update_invoice_status(invoice_id):
+    try:
+        data = request.get_json()
+        status = data.get('status')
+        if status not in ['paid', 'unpaid']:
+            return jsonify({'error': 'Invalid status'}), 400
+        result = invoices.update_one(
+            {"_id": ObjectId(invoice_id)},
+            {"$set": {"status": status}}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Invoice not found"}), 404
+        return jsonify({"message": "Status updated"}), 200
+    except Exception as e:
+        print(f"Error updating status for invoice {invoice_id}:", e)
+        return jsonify({"error": "Invalid invoice ID or server error"}), 400
+    
 # DELETE: Delete invoice
 @app.route('/invoices/<invoice_id>', methods=['DELETE'])
 def delete_invoice(invoice_id):
@@ -246,16 +282,20 @@ def get_products():
     all_products = list(products.find({}, {
         "_id": 1, 
         "name": 1, 
-        "default_packing_qty": 1, 
+        "stock_quantity": 1,
         "default_rate_per_kg": 1,
         "hsn_code": 1
     }))
     for product in all_products:
         product["_id"] = str(product["_id"])
-        # Ensure hsn_code field exists
         if "hsn_code" not in product:
             product["hsn_code"] = ""
+        if "stock_quantity" not in product:
+            product["stock_quantity"] = 0
+        if "default_rate_per_kg" not in product:
+            product["default_rate_per_kg"] = 0
     return jsonify(all_products)
+
 
 @app.route("/products/<product_id>", methods=["GET"])
 def get_product(product_id):
@@ -263,11 +303,12 @@ def get_product(product_id):
         product = products.find_one({"_id": ObjectId(product_id)})
         if not product:
             return jsonify({"error": "Product not found"}), 404
-        
-        # Ensure hsn_code field exists
         if "hsn_code" not in product:
             product["hsn_code"] = ""
-            
+        if "stock_quantity" not in product:
+            product["stock_quantity"] = 0
+        if "default_rate_per_kg" not in product:
+            product["default_rate_per_kg"] = 0
         return jsonify(convert_objectid(product))
     except Exception as e:
         print(f"Error fetching product {product_id}:", e)
@@ -277,16 +318,16 @@ def get_product(product_id):
 def add_product():
     data = request.json
     name = data.get("name")
-    default_packing_qty = data.get("default_packing_qty", 0)
+    stock_quantity = data.get("stock_quantity", 0)
     default_rate_per_kg = data.get("default_rate_per_kg", 0)
-    hsn_code = data.get("hsn_code", "")  # HSN code, optional with empty default
+    hsn_code = data.get("hsn_code", "")
 
-    if not name:
-        return jsonify({"error": "Product name is required"}), 400
+    if not name or not hsn_code or stock_quantity is None or default_rate_per_kg is None:
+        return jsonify({"error": "Product name, HSN code, stock quantity, and rate per kg are required"}), 400
 
     product_data = {
         "name": name,
-        "default_packing_qty": default_packing_qty,
+        "stock_quantity": stock_quantity,
         "default_rate_per_kg": default_rate_per_kg,
         "hsn_code": hsn_code
     }
@@ -294,18 +335,53 @@ def add_product():
     result = products.insert_one(product_data)
     return jsonify({"message": "Product added successfully", "id": str(result.inserted_id)}), 201
 
+
+@app.route('/products/<product_id>/stock', methods=['PUT'])
+def update_stock_quantity(product_id):
+    try:
+        data = request.get_json()
+        delta = data.get('quantity')
+        if delta is None:
+            return jsonify({"error": "Quantity is required"}), 400
+        try:
+            delta = float(delta)
+        except (ValueError, TypeError):
+            return jsonify({"error": "Invalid quantity format"}), 400
+
+        product = products.find_one({"_id": ObjectId(product_id)})
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        current_stock = float(product.get("stock_quantity", 0))
+        new_stock = current_stock + delta  # Allow negative stock
+
+        result = products.update_one(
+            {"_id": ObjectId(product_id)},
+            {"$set": {"stock_quantity": new_stock}}
+        )
+        return jsonify({"message": "Stock quantity updated successfully", "stock_quantity": new_stock}), 200
+    except Exception as e:
+        print(f"Error updating stock for product {product_id}: {e}")
+        return jsonify({"error": "Invalid product ID or server error"}), 400
+    
 @app.route('/products/<product_id>', methods=['PUT'])
 def update_product(product_id):
     try:
         data = request.get_json()
-        
-        # Ensure hsn_code field exists in update data
-        if 'hsn_code' not in data:
-            data['hsn_code'] = ''
-            
+        update_data = {}
+        if "name" in data:
+            update_data["name"] = data["name"]
+        if "hsn_code" in data:
+            update_data["hsn_code"] = data["hsn_code"]
+        if "stock_quantity" in data:
+            update_data["stock_quantity"] = data["stock_quantity"]
+        if "default_rate_per_kg" in data:
+            update_data["default_rate_per_kg"] = data["default_rate_per_kg"]
+        if not update_data:
+            return jsonify({"error": "No valid fields to update"}), 400
         result = products.update_one(
             {"_id": ObjectId(product_id)},
-            {"$set": data}
+            {"$set": update_data}
         )
         if result.matched_count == 0:
             return jsonify({"error": "Product not found"}), 404
@@ -324,19 +400,6 @@ def delete_product(product_id):
     except Exception as e:
         print(f"Error deleting product {product_id}:", e)
         return jsonify({"error": "Invalid product ID or server error"}), 400
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # --- Statement Routes ---
@@ -390,7 +453,8 @@ def get_buyer_statement(buyer_id):
             "invoice_no": 1,
             "date": 1,
             "items": 1,
-            "total_amount": 1
+            "total_amount": 1,
+            "status": 1
         }
         
         # Then get invoices for this buyer with date filters
