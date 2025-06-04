@@ -438,6 +438,24 @@ export default function PrintableStatement({ apiBaseUrl }) {
   return (statement.total_amount || 0) - paidAmount;
 };
 
+const statementResultRef = useRef(null);
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+  typeof navigator === 'undefined' ? '' : navigator.userAgent
+);
+
+useEffect(() => {
+  if (statement && isMobile && statementResultRef.current) {
+    // Small delay to ensure content is rendered
+    setTimeout(() => {
+      statementResultRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start',
+        inline: 'nearest'
+      });
+    }, 300);
+  }
+}, [statement, isMobile]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -450,7 +468,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
               </div>
               <div>
                 <h1 className="text-3xl sm:text-4xl font-bold text-black">Buyer Statements</h1>
-                <p className="text-gray-600 mt-1">Generate and view detailed buyer transaction reports</p>
+                {/* <p className="text-gray-600 mt-1">Generate and view detailed buyer transaction reports</p> */}
               </div>
             </div>
             <BackToHome />
@@ -657,7 +675,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
 
         {/* Statement Display */}
         {statement && !loading && (
-          <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl overflow-hidden">
+          <div ref={statementResultRef} className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl overflow-hidden">
             {/* Statement Header */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
