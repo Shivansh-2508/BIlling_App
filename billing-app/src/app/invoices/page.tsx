@@ -140,7 +140,7 @@ export default function InvoiceListPage() {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           ${styles}
           <style>
-            body { background: white; margin: 0; }
+            body { background: white; margin: 20mm 10mm 20mm 10mm; }
             .print-area { background: white; padding: 0; }
           </style>
         </head>
