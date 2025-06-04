@@ -567,6 +567,20 @@ return (
                       
                       {/* Action Buttons - Stacked on mobile */}
                       <div className="flex flex-col gap-1 sm:gap-2 flex-shrink-0">
+
+                        {/* Edit Button */}
+                        <button
+                          className="text-blue-600 hover:text-blue-800 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `/editInvoice?id=${inv._id}`;
+                          }}
+                          title="Edit Invoice"
+                        >
+                          <FileText className="w-3 h-3" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+
                         {/* Delete Button */}
                         <button
                           className="text-red-600 hover:text-red-700 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 cursor-pointer"
