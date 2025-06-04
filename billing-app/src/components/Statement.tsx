@@ -130,28 +130,41 @@ export default function PrintableStatement({ apiBaseUrl }) {
   const jsPDF = (await import("jspdf")).default;
   const doc = new jsPDF();
 
-  // Title
-  doc.setFontSize(18);
-  doc.text("Buyer Statement", 14, 16);
+  // Company Header - Bold and Center Aligned
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const companyName = "SHIVANSH INKS";
+  const companyNameWidth = doc.getTextWidth(companyName);
+  const companyNameX = (pageWidth - companyNameWidth) / 2;
+  doc.text(companyName, companyNameX, 16);
+
+  // Buyer Statement Title - Center Aligned
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "normal");
+  const buyerStatement = "Buyer Statement";
+  const buyerStatementWidth = doc.getTextWidth(buyerStatement);
+  const buyerStatementX = (pageWidth - buyerStatementWidth) / 2;
+  doc.text(buyerStatement, buyerStatementX, 28);
 
   // Buyer Info
   doc.setFontSize(12);
-  doc.text(`Buyer: ${statement.buyer}`, 14, 28);
+  doc.text(`Buyer: ${statement.buyer}`, 14, 40);
   if (statement.buyer_gstin) {
-    doc.text(`GSTIN: ${statement.buyer_gstin}`, 14, 36);
+    doc.text(`GSTIN: ${statement.buyer_gstin}`, 14, 48);
   }
   doc.text(
     `Total Invoices: ${statement.invoice_count}`,
     14,
-    statement.buyer_gstin ? 44 : 36
+    statement.buyer_gstin ? 56 : 48
   );
   doc.text(
     `Total Amount: Rs. ${statement.total_amount?.toFixed(2) || "0.00"}`,
     14,
-    statement.buyer_gstin ? 52 : 44
+    statement.buyer_gstin ? 64 : 56
   );
 
-  let y = statement.buyer_gstin ? 60 : 52;
+  let y = statement.buyer_gstin ? 72 : 64;
   if (startDate || endDate) {
     if (startDate) {
       doc.text(`From: ${new Date(startDate).toLocaleDateString("en-IN")}`, 14, y);
@@ -170,7 +183,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
   y += 10;
 
   // Table columns
-  const columnWidths = [40, 40, 30, 50, 30];
+  const columnWidths = [35, 25, 20, 35, 25];
   const startX = 14;
   const headers = ["Invoice No", "Date", "Items", "Amount", "Status"];
 
@@ -183,16 +196,25 @@ export default function PrintableStatement({ apiBaseUrl }) {
     );
   } else {
     // Draw header background and headings for all columns
-    doc.setFillColor(33, 150, 243); // blue
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(12);
+    doc.setFillColor(255, 255, 255); // white background
+    doc.setFontSize(10);
+    
     let colX = startX;
+    // First draw all the backgrounds with borders
     headers.forEach((text, i) => {
-      doc.rect(colX, y, columnWidths[i], 10, "F"); // filled rect
+      doc.rect(colX, y, columnWidths[i], 10, "FD"); // "FD" = Fill and Draw border
+      colX += columnWidths[i];
+    });
+    
+    // Then draw all the black text on top
+    colX = startX;
+    doc.setTextColor(0, 0, 0); // black text
+    headers.forEach((text, i) => {
       doc.text(text, colX + 2, y + 7);
       colX += columnWidths[i];
     });
 
+    // Reset text color to black for data rows
     doc.setTextColor(0, 0, 0);
     y += 10;
 
@@ -208,7 +230,9 @@ export default function PrintableStatement({ apiBaseUrl }) {
       ];
 
       values.forEach((text, i) => {
+        // Draw cell border
         doc.rect(colX, y, columnWidths[i], 10);
+        // Add text with padding
         doc.text(text, colX + 2, y + 7);
         colX += columnWidths[i];
       });
