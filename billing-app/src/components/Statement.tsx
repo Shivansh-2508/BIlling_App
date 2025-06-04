@@ -480,115 +480,117 @@ useEffect(() => {
   }
 }, [statement, isMobile]);
 
+useEffect(() => {
+  // Prevent zoom on mobile and set proper viewport
+  const viewport = document.querySelector("meta[name=viewport]");
+  if (viewport) {
+    viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+  }
+}, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto p-2 sm:p-4 md:p-6 lg:p-8">
         {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-                <FileText className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-black">Buyer Statements</h1>
-                {/* <p className="text-gray-600 mt-1">Generate and view detailed buyer transaction reports</p> */}
-              </div>
-            </div>
-            <BackToHome />
+        <div className="mb-4 sm:mb-8">
+      <div className="flex items-center justify-between mb-2 sm:mb-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="p-2 sm:p-3 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-lg">
+            <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-3xl md:text-4xl font-bold text-black">Buyer Statements</h1>
           </div>
         </div>
+        <BackToHome />
+      </div>
+    </div>
 
         {/* Control Panel */}
-        <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl mb-8 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6">
-            <div className="flex items-center gap-3">
-              {/* <Filter className="w-6 h-6 text-white" /> */}
-              {/* <h2 className="text-xl font-semibold text-white">Filter Options</h2> */}
-            </div>
-            <p className="text-blue-100 mt-1">Select buyer and date range to generate statement</p>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              {/* Custom Searchable Dropdown for Buyers */}
-              <div className={`relative transition-all duration-300 ${isDropdownOpen ? 'lg:col-span-2' : ''}`} ref={dropdownRef}>
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-                  <User className="w-4 h-4 text-blue-600" />
-                  Select Buyer
-                </label>
-                <div className="relative">
-                  <div
-                    className={`w-full border-2 border-gray-200 rounded-xl p-4 cursor-pointer bg-white/50 backdrop-blur-sm flex items-center justify-between transition-all duration-200 hover:border-blue-300 hover:shadow-md ${
-                      loading ? 'opacity-50 cursor-not-allowed' : ''
-                    } ${isDropdownOpen ? 'border-blue-500 shadow-lg' : ''}`}
-                    onClick={!loading ? handleDropdownToggle : undefined}
-                  >
-                    <span className={`font-medium ${selectedBuyerName ? 'text-gray-900' : 'text-gray-500'}`}>
-                      {selectedBuyerName || '🔍 Search and select a buyer...'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {selectedBuyerName && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleClearSelection();
-                          }}
-                          className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                      <ChevronDown 
-                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                          isDropdownOpen ? 'rotate-180' : ''
-                        }`} 
+        <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl mb-4 sm:mb-8 overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 sm:p-6">
+        <p className="text-blue-100 text-xs sm:text-sm">Select buyer and date range to generate statement</p>
+      </div>
+      <div className="p-3 sm:p-6">
+        <div className="grid grid-cols-1 gap-3 sm:gap-6 mb-3 sm:mb-6">
+          {/* Custom Searchable Dropdown for Buyers - More compact */}
+          <div className="relative" ref={dropdownRef}>
+            <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+              <User className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+              Select Buyer
+            </label>
+            <div className="relative">
+              <div
+                className={`w-full border-2 border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 cursor-pointer bg-white/50 backdrop-blur-sm flex items-center justify-between transition-all duration-200 hover:border-blue-300 hover:shadow-md ${
+                  loading ? 'opacity-50 cursor-not-allowed' : ''
+                } ${isDropdownOpen ? 'border-blue-500 shadow-lg' : ''}`}
+                onClick={!loading ? handleDropdownToggle : undefined}
+              >
+                <span className={`font-medium text-sm sm:text-base ${selectedBuyerName ? 'text-gray-900' : 'text-gray-500'}`}>
+                  {selectedBuyerName || '🔍 Search and select a buyer...'}
+                </span>
+                <div className="flex items-center gap-1 sm:gap-2">
+                  {selectedBuyerName && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClearSelection();
+                      }}
+                      className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                    >
+                      <X className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </button>
+                  )}
+                  <ChevronDown 
+                    className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform duration-200 ${
+                      isDropdownOpen ? 'rotate-180' : ''
+                    }`} 
+                  />
+                </div>
+              </div>
+
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-200">
+                  {/* Search Input */}
+                  <div className="p-3 sm:p-4 border-b border-gray-100 bg-gray-50/50">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                      <input
+                        type="text"
+                        value={buyerSearchTerm}
+                        onChange={(e) => setBuyerSearchTerm(e.target.value)}
+                        placeholder="Type to search buyers..."
+                        className="w-full pl-10 sm:pl-11 pr-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm font-medium text-gray-700 placeholder-gray-400 transition-all duration-200"
+                        onClick={(e) => e.stopPropagation()}
+                        autoFocus
                       />
                     </div>
                   </div>
-                  {/* Dropdown Menu */}
-                  {isDropdownOpen && (
-                    <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-200">
-                      {/* Search Input */}
-                      <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                          <input
-                            type="text"
-                            value={buyerSearchTerm}
-                            onChange={(e) => setBuyerSearchTerm(e.target.value)}
-                            placeholder="Type to search buyers..."
-                            className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium text-gray-700 placeholder-gray-400 transition-all duration-200"
-                            onClick={(e) => e.stopPropagation()}
-                            autoFocus
-                          />
-                        </div>
-                      </div>
-                      {/* Buyer Options */}
-                      <div className="max-h-80 overflow-y-auto">
-                        {filteredBuyers.length > 0 ? (
-                          filteredBuyers.map((buyer, index) => (
-                            <div
-                              key={buyer._id}
-                              className={`p-4 hover:bg-blue-50 cursor-pointer text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0 ${
-                                index < 10 ? 'min-h-[60px]' : ''
-                              }`}
-                              onClick={() => handleBuyerSelect(buyer)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-14 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                  <span className="text-white text-sm font-bold">
-                                    {buyer.name.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-gray-900 font-semibold truncate">{buyer.name}</p>
-                                  {buyer.gstin && (
-                                    <p className="text-gray-500 text-xs truncate">GSTIN: {buyer.gstin}</p>
-                                  )}
-                                </div>
-                              </div>
+                  {/* Buyer Options - More compact */}
+                  <div className="max-h-60 sm:max-h-80 overflow-y-auto">
+                    {filteredBuyers.length > 0 ? (
+                      filteredBuyers.map((buyer, index) => (
+                        <div
+                          key={buyer._id}
+                          className="p-3 sm:p-4 hover:bg-blue-50 cursor-pointer text-xs sm:text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0"
+                          onClick={() => handleBuyerSelect(buyer)}
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white text-xs sm:text-sm font-bold">
+                                {buyer.name.charAt(0).toUpperCase()}
+                              </span>
                             </div>
-                          ))
+                            <div className="flex-1 min-w-0">
+                              <p className="text-gray-900 font-semibold truncate text-sm sm:text-base">{buyer.name}</p>
+                              {buyer.gstin && (
+                                <p className="text-gray-500 text-xs truncate">GSTIN: {buyer.gstin}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
                         ) : buyerSearchTerm ? (
                           <div className="p-8 text-gray-700 text-sm text-center">
                             <AlertCircle className="w-8 h-8 mx-auto mb-3 text-gray-400" />
@@ -617,63 +619,63 @@ useEffect(() => {
                 </div>
               </div>
               {/* Start Date */}
-              <div className={`${isDropdownOpen ? 'lg:col-span-1' : ''}`}>
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl p-4 bg-white/50 backdrop-blur-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 font-medium text-gray-700 "
-                  disabled={loading}
-                />
-              </div>
+              <div>
+              <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 bg-white/50 backdrop-blur-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 font-medium text-gray-700 text-sm"
+                disabled={loading}
+              />
+            </div>
               {/* End Date */}
-              <div className={`${isDropdownOpen ? 'lg:col-span-3' : ''}`}>
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl p-4 bg-white/50 backdrop-blur-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 font-medium text-gray-700"
-                  disabled={loading}
-                  min={startDate}
-                />
-              </div>
+              <div>
+              <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-gray-700 mb-2 sm:mb-3">
+                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 bg-white/50 backdrop-blur-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 font-medium text-gray-700 text-sm"
+                disabled={loading}
+                min={startDate}
+              />
+            </div>
             </div>
             {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 justify-end">
-              <button
-                onClick={handleResetFilter}
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading || (!startDate && !endDate)}
-              >
-                <RefreshCw className="w-4 h-4" />
-                Reset Filters
-              </button>
-              <button
-                onClick={handleDateFilterApply}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                disabled={loading || !selectedBuyer}
-              >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    Generate Statement
-                  </>
-                )}
-              </button>
-            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
+          <button
+            onClick={handleResetFilter}
+            className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            disabled={loading || (!startDate && !endDate)}
+          >
+            <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+            Reset Filters
+          </button>
+          <button
+            onClick={handleDateFilterApply}
+            className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-sm"
+            disabled={loading || !selectedBuyer}
+          >
+            {loading ? (
+              <>
+                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Loading...
+              </>
+            ) : (
+              <>
+                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                Generate Statement
+              </>
+            )}
+          </button>
+        </div>
           </div>
         </div>
 
@@ -699,52 +701,36 @@ useEffect(() => {
 
         {/* Statement Display */}
         {statement && !loading && (
-          <div ref={statementResultRef} className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl overflow-hidden">
-            {/* Statement Header */}
-            <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Statement Summary</h2>
-                  <p className="text-emerald-100">Financial overview for {statement.buyer}</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={handleExportPDF}
-                    disabled={isGeneratingPDF}
-                    className="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isGeneratingPDF ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="w-5 h-5" />
-                        Export PDF
-                      </>
-                    )}
-                  </button>
-                  {/* <button
-                    onClick={handleSharePDF}
-                    disabled={isGeneratingPDF}
-                    className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border border-white/30"
-                  >
-                    {isGeneratingPDF ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Sharing...
-                      </>
-                    ) : (
-                      <>
-                        <Share2 className="w-5 h-5" />
-                        Share PDF
-                      </>
-                    )}
-                  </button> */}
-                </div>
-              </div>
+      <div ref={statementResultRef} className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
+        {/* Statement Header - More compact */}
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div>
+              <h2 className="text-lg sm:text-2xl font-bold text-white mb-1 sm:mb-2">Statement Summary</h2>
+              <p className="text-emerald-100 text-xs sm:text-sm">Financial overview for {statement.buyer}</p>
             </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+              <button
+                onClick={handleExportPDF}
+                disabled={isGeneratingPDF}
+                className="flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-200 backdrop-blur-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Export PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+        
             <div className="p-6">
               {/* Visual Preview */}
               <div ref={printRef} className="preview-content">
