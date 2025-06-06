@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { InvoicePreview } from '@/components/InvoicePreview';
 import { XCircle, Save, ArrowLeft, FileText, Plus, Trash2, Search, ChevronDown, X, User, Package, AlertCircle } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 
+// --- Interfaces ---
 interface Item {
   product_name: string;
   packing_qty: number;
   no_of_units: number;
   rate_per_kg: number;
 }
-
 interface Invoice {
   _id: string;
   invoice_no: string;
@@ -27,21 +27,36 @@ interface Invoice {
   total_amount: number;
   status?: 'paid' | 'unpaid';
 }
-
 interface Buyer {
   _id: string;
   name: string;
   gstin?: string;
   address?: string;
 }
-
 interface Product {
   _id: string;
   name: string;
   rate_per_kg?: number;
 }
 
+// --- Main Page: Suspense Boundary Only ---
 export default function EditInvoicePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
+          <p className="text-gray-600">Loading invoice editor...</p>
+        </div>
+      </div>
+    }>
+      <EditInvoiceContent />
+    </Suspense>
+  );
+}
+
+// --- All Logic and Hooks Go Here ---
+function EditInvoiceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const invoiceId = searchParams.get('id');
@@ -80,21 +95,12 @@ export default function EditInvoicePage() {
           fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/buyers`),
           fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/products`)
         ]);
-
-        if (buyersRes.ok) {
-          const buyersData = await buyersRes.json();
-          setBuyers(buyersData);
-        }
-
-        if (productsRes.ok) {
-          const productsData = await productsRes.json();
-          setProducts(productsData);
-        }
+        if (buyersRes.ok) setBuyers(await buyersRes.json());
+        if (productsRes.ok) setProducts(await productsRes.json());
       } catch (err) {
         console.error('Error fetching data:', err);
       }
     };
-
     fetchData();
   }, []);
 
@@ -108,11 +114,8 @@ export default function EditInvoicePage() {
     fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${invoiceId}`)
       .then(res => res.json())
       .then(data => {
-        if (data.error) {
-          setError(data.error);
-        } else {
-          setInvoice(recalculateTotals(data));
-        }
+        if (data.error) setError(data.error);
+        else setInvoice(recalculateTotals(data));
         setLoading(false);
       })
       .catch(() => {
@@ -124,12 +127,9 @@ export default function EditInvoicePage() {
   // Handle clicks outside dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Handle buyer dropdown
       if (buyerDropdownRef.current && !buyerDropdownRef.current.contains(event.target as Node)) {
         setIsBuyerDropdownOpen(false);
       }
-
-      // Handle product dropdowns
       Object.keys(openProductDropdowns).forEach(key => {
         const idx = parseInt(key);
         if (openProductDropdowns[idx] && productDropdownRefs.current[idx] && 
@@ -138,11 +138,8 @@ export default function EditInvoicePage() {
         }
       });
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openProductDropdowns]);
 
   // Recalculate totals function
@@ -163,10 +160,7 @@ export default function EditInvoicePage() {
     setInvoice((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, [field]: value };
-      // Recalculate if changing tax fields
-      if (field === 'cgst' || field === 'sgst') {
-        return recalculateTotals(updated);
-      }
+      if (field === 'cgst' || field === 'sgst') return recalculateTotals(updated);
       return updated;
     });
   };
@@ -207,14 +201,10 @@ export default function EditInvoicePage() {
     setBuyerSearchTerm('');
     setIsBuyerDropdownOpen(false);
   };
-
   const handleBuyerDropdownToggle = () => {
     setIsBuyerDropdownOpen(!isBuyerDropdownOpen);
-    if (!isBuyerDropdownOpen) {
-      setBuyerSearchTerm('');
-    }
+    if (!isBuyerDropdownOpen) setBuyerSearchTerm('');
   };
-
   const handleClearBuyer = () => {
     handleChange('buyer_name', '');
     handleChange('address', '');
@@ -226,25 +216,19 @@ export default function EditInvoicePage() {
   // Product dropdown handlers
   const handleProductSelect = (idx: number, product: Product) => {
     handleItemChange(idx, 'product_name', product.name);
-    if (product.rate_per_kg) {
-      handleItemChange(idx, 'rate_per_kg', product.rate_per_kg);
-    }
+    if (product.rate_per_kg) handleItemChange(idx, 'rate_per_kg', product.rate_per_kg);
     setProductSearchTerms(prev => ({ ...prev, [idx]: '' }));
     setOpenProductDropdowns(prev => ({ ...prev, [idx]: false }));
   };
-
   const handleProductDropdownToggle = (idx: number) => {
     setOpenProductDropdowns(prev => ({ ...prev, [idx]: !prev[idx] }));
-    if (!openProductDropdowns[idx]) {
-      setProductSearchTerms(prev => ({ ...prev, [idx]: '' }));
-    }
+    if (!openProductDropdowns[idx]) setProductSearchTerms(prev => ({ ...prev, [idx]: '' }));
   };
 
   // Filter functions
   const filteredBuyers = buyers.filter(buyer =>
     buyer.name.toLowerCase().includes(buyerSearchTerm.toLowerCase())
   );
-
   const getFilteredProducts = (idx: number) => {
     const searchTerm = productSearchTerms[idx] || '';
     return products.filter(product =>
@@ -285,10 +269,10 @@ export default function EditInvoicePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600"></div>
-          <p className="text-gray-600">Loading invoice...</p>
+          <p className="text-gray-600">Loading invoice editor...</p>
         </div>
       </div>
     );
@@ -312,6 +296,7 @@ export default function EditInvoicePage() {
     );
   }
 
+  // --- The rest of your UI (unchanged) ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -324,7 +309,6 @@ export default function EditInvoicePage() {
                 className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
                 title="Back to Invoices"
               >
-                {/* <ArrowLeft className="w-5 h-5 text-black" /> */}
                 <BackToHome /> 
               </button>
               <div className="flex items-center gap-3">
@@ -339,7 +323,6 @@ export default function EditInvoicePage() {
                 </div>
               </div>
             </div>
-            {/* <BackToHome /> */}
           </div>
         </div>
       </div>
@@ -363,10 +346,8 @@ export default function EditInvoicePage() {
       {/* Main Content - Dual Pane Layout */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
-          
-          {/* Left Panel - Form (Mobile: Full width, Desktop: 60%) */}
+          {/* Left Panel - Form */}
           <div className="w-full lg:w-3/5 space-y-4 sm:space-y-6">
-            
             {/* Buyer Information Card */}
             <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-blue-100">
@@ -735,13 +716,12 @@ export default function EditInvoicePage() {
                 onClick={() => router.push('/invoices')}
                 className="flex items-center justify-center gap-2 bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 sm:px-8 sm:py-4 rounded-xl font-semibold transition-all duration-200"
               >
-                {/* <ArrowLeft className="w-5 h-5" /> */}
                 Cancel
               </button>
             </div>
           </div>
 
-          {/* Right Panel - Preview (Mobile: Full width below form, Desktop: 40%) */}
+          {/* Right Panel - Preview */}
           <div className="w-full lg:w-1/2">
             <div className="sticky top-24 bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
               <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
