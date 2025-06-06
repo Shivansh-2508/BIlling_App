@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { InvoicePreview } from '@/components/InvoicePreview';
-import { Download, Share2, FileText, Eye, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Download, Share2, FileText, Eye, Clock, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 import CreateInvoiceButton from '@/components/CreateInvoiceButton';
 
@@ -55,7 +55,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('https://billing-app-onzk.onrender.com/invoices')
+    fetch('http://localhost:5000/invoices')
       .then((res) => {
         if (!res.ok) {
           throw new Error('Failed to fetch invoices');
@@ -151,7 +151,7 @@ export default function InvoiceListPage() {
     `;
 
     // 4. Send to backend for PDF generation
-    const response = await fetch('https://billing-app-onzk.onrender.com/export-invoice-pdf', {
+    const response = await fetch('http://localhost:5000/export-invoice-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -331,244 +331,380 @@ export default function InvoiceListPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl p-6 mb-8">
-          <div className="flex items-center mb-4">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-3 rounded-xl mr-4">
-              <FileText className="w-8 h-8 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                Invoice Management
-              </h1>
-              <p className="text-gray-600 mt-1">Manage and track all your invoices</p>
-            </div>
+  const deleteInvoice = async (invoiceId: string, invoiceNo: string) => {
+    if (!window.confirm(`Are you sure you want to delete Invoice #${invoiceNo}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${invoiceId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete invoice');
+      }
+
+      // Remove from local state
+      setInvoices((prev) => prev.filter((inv) => inv._id !== invoiceId));
+      
+      // Clear selection if deleted invoice was selected
+      if (selectedInvoice?._id === invoiceId) {
+        setSelectedInvoice(null);
+      }
+
+      // Show success message (you can replace alert with a toast notification)
+      alert(`Invoice #${invoiceNo} has been deleted successfully.`);
+
+    } catch (err: any) {
+      console.error('Error deleting invoice:', err);
+      alert('Failed to delete invoice: ' + (err?.message || 'Please try again.'));
+    }
+  };
+
+  useEffect(() => {
+  setLoading(true);
+  fetch('http://localhost:5000/invoices')
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error('Failed to fetch invoices');
+      }
+      return res.json();
+    })
+    .then((data) => {
+      // Format dates and ensure numeric fields are properly typed
+      const formattedInvoices = data.map((inv: Invoice) => ({
+        ...inv,
+        date: inv.date ? new Date(inv.date).toISOString().split('T')[0] : '',
+        subtotal: Number(inv.subtotal || 0),
+        cgst: Number(inv.cgst || 0),
+        sgst: Number(inv.sgst || 0),
+        total_amount: Number(inv.total_amount || 0),
+        items: inv.items.map(item => ({
+          ...item,
+          packing_qty: Number(item.packing_qty || 0),
+          no_of_units: Number(item.no_of_units || 0),
+          rate_per_kg: Number(item.rate_per_kg || 0)
+        }))
+      }));
+
+      const extractInvoiceNumber = (invoice_no: string) => {
+  // Extracts the first group of digits after the '#' (ignores leading zeros)
+  const match = invoice_no.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+};
+
+      // Sort by invoice number in descending order (higher numbers first)
+      const sortedInvoices = formattedInvoices.sort((a, b) => {
+  return extractInvoiceNumber(a.invoice_no) - extractInvoiceNumber(b.invoice_no);
+});
+
+      setInvoices(sortedInvoices);
+      setLoading(false);
+    })
+    .catch((err) => {
+      console.error('Error fetching invoices:', err);
+      setError(err.message);
+      setLoading(false);
+    });
+}, []);
+
+  // Add viewport meta tag handling at the top of your component
+useEffect(() => {
+  // Prevent zoom on mobile and set proper viewport
+  const viewport = document.querySelector("meta[name=viewport]");
+  if (viewport) {
+    viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+  }
+}, []);
+
+// Update the main container and all sections for better mobile layout
+return (
+  <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="max-w-7xl mx-auto p-3 sm:p-6"> {/* Reduced mobile padding */}
+      
+      {/* Header - More compact on mobile */}
+      <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl p-4 sm:p-6 mb-4 sm:mb-8">
+        <div className="flex items-center mb-3 sm:mb-4">
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 sm:p-3 rounded-lg sm:rounded-xl mr-3 sm:mr-4">
+            <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
           </div>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <BackToHome />
-            <CreateInvoiceButton />
+          <div>
+            <h1 className="text-xl sm:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+              Invoice Management
+            </h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">Manage and track all your invoices</p>
           </div>
         </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center sm:gap-4">
+          <BackToHome />
+          <CreateInvoiceButton />
+        </div>
+      </div>
 
-        {loading ? (
-          <div className="flex justify-center p-16">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600"></div>
-              <p className="text-gray-600">Loading invoices...</p>
+      {loading ? (
+        <div className="flex justify-center p-8 sm:p-16">
+          <div className="flex flex-col items-center space-y-3 sm:space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-4 border-blue-200 border-t-blue-600"></div>
+            <p className="text-gray-600 text-sm sm:text-base">Loading invoices...</p>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 sm:px-6 sm:py-4 rounded-lg sm:rounded-xl shadow-sm">
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0" />
+            <div>
+              <p className="font-medium text-sm sm:text-base">{error}</p>
+              <p className="text-xs sm:text-sm text-red-600 mt-1">Please ensure your API server is running at http://localhost:5000</p>
             </div>
           </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl shadow-sm">
-            <div className="flex items-center space-x-3">
-              <XCircle className="w-5 h-5 text-red-500" />
-              <div>
-                <p className="font-medium">{error}</p>
-                <p className="text-sm text-red-600 mt-1">Please ensure your API server is running at https://billing-app-onzk.onrender.com</p>
-              </div>
-            </div>
+        </div>
+      ) : invoices.length === 0 ? (
+        <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center">
+          <div className="bg-gray-100 rounded-full p-4 sm:p-6 w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+            <FileText className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
           </div>
-        ) : invoices.length === 0 ? (
-          <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl p-12 text-center">
-            <div className="bg-gray-100 rounded-full p-6 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-              <FileText className="w-12 h-12 text-gray-400" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-3">No invoices found</h3>
-            <p className="text-gray-600 mb-6">Create your first invoice to get started</p>
-            <button 
-              onClick={() => window.location.href = '/invoices/create'} 
-              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              Create Invoice
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Invoice List */}
-            <div className="w-full lg:w-2/5">
-              <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-semibold text-blue-900 text-lg flex items-center">
-                      <FileText className="w-5 h-5 mr-3 text-blue-600" />
-                      Invoice List
-                    </h2>
-                    <div className="flex items-center space-x-3">
-                      <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                        {invoices.length} Total
-                      </span>
-                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
-                        {invoices.filter(inv => inv.status === 'paid').length} Paid
-                      </span>
-                    </div>
+          <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2 sm:mb-3">No invoices found</h3>
+          <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Create your first invoice to get started</p>
+          <button 
+            onClick={() => window.location.href = '/invoices/create'} 
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-5 py-2.5 sm:px-6 sm:py-3 rounded-lg sm:rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl text-sm sm:text-base"
+          >
+            Create Invoice
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4 sm:gap-8 lg:flex-row">
+          
+          {/* Invoice List - Full width on mobile, responsive on larger screens */}
+          <div className="w-full lg:w-2/5">
+            <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
+              
+              {/* Header - More compact on mobile */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 sm:px-6 sm:py-4 border-b border-blue-100">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+                  <h2 className="font-semibold text-blue-900 text-base sm:text-lg flex items-center">
+                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 text-blue-600" />
+                    Invoice List
+                  </h2>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <span className="bg-blue-100 text-blue-700 px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
+                      {invoices.length} Total
+                    </span>
+                    <span className="bg-green-100 text-green-700 px-2 py-1 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium">
+                      {invoices.filter(inv => inv.status === 'paid').length} Paid
+                    </span>
                   </div>
                 </div>
-                <div className="divide-y divide-gray-100 max-h-[70vh] overflow-y-auto">
-                  {invoices.map((inv) => (
-                    <div
-                      key={inv._id}
-                      className={`group p-5 transition-all duration-200 cursor-pointer ${
-                        selectedInvoice?._id === inv._id
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 shadow-inner'
-                          : 'hover:bg-gradient-to-r hover:from-blue-25 hover:to-indigo-25'
-                      }`}
-                      onClick={() => {
-  setSelectedInvoice(inv);
-  
-  // Auto-scroll to export buttons on mobile devices
-  const isMobile = window.innerWidth <= 1024; // lg breakpoint
-  if (isMobile && exportButtonsRef.current) {
-    setTimeout(() => {
-      exportButtonsRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }, 100); // Small delay to ensure state update completes
-  }
-}}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-lg text-sm font-bold">
-                              #{inv.invoice_no}
-                            </span>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                              {formatDate(inv.date)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-gray-800 truncate">{inv.buyer_name}</h3>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                              {inv.items.length} items
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
-                              ₹{inv.total_amount.toFixed(2)}
-                            </span>
-                            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
-                              inv.status === 'paid'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              {inv.status === 'paid' ? (
-                                <>
-                                  <CheckCircle2 className="w-3 h-3" />
-                                  Paid
-                                </>
-                              ) : (
-                                <>
-                                  <Clock className="w-3 h-3" />
-                                  Unpaid
-                                </>
-                              )}
-                            </div>
+              </div>
+              
+              {/* Invoice List Items - Optimized for mobile */}
+              <div className="divide-y divide-gray-100 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto">
+                {invoices.slice().reverse().map((inv)  => (
+                  <div
+                    key={inv._id}
+                    className={`group p-3 sm:p-5 transition-all duration-200 cursor-pointer ${
+                      selectedInvoice?._id === inv._id
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 shadow-inner'
+                        : 'hover:bg-gradient-to-r hover:from-blue-25 hover:to-indigo-25'
+                    }`}
+                    onClick={() => {
+                      setSelectedInvoice(inv);
+                      
+                      // Auto-scroll to export buttons on mobile devices
+                      const isMobile = window.innerWidth <= 1024;
+                      if (isMobile && exportButtonsRef.current) {
+                        setTimeout(() => {
+                          exportButtonsRef.current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                          });
+                        }, 100);
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {/* Invoice Number and Date */}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 mb-2">
+                          <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-md sm:rounded-lg text-xs sm:text-sm font-bold inline-block w-fit">
+                            #{inv.invoice_no}
+                          </span>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md w-fit">
+                            {formatDate(inv.date)}
+                          </span>
+                        </div>
+                        
+                        {/* Buyer Name and Items */}
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2 mb-2">
+                          <h3 className="font-semibold text-gray-800 text-sm sm:text-base truncate">{inv.buyer_name}</h3>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded w-fit">
+                            {inv.items.length} items
+                          </span>
+                        </div>
+                        
+                        {/* Amount and Status */}
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                          <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
+                            ₹{inv.total_amount.toFixed(2)}
+                          </span>
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold w-fit ${
+                            inv.status === 'paid'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {inv.status === 'paid' ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3" />
+                                Paid
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="w-3 h-3" />
+                                Unpaid
+                              </>
+                            )}
                           </div>
                         </div>
+                      </div>
+                      
+                      {/* Action Buttons - Stacked on mobile */}
+                      <div className="flex flex-col gap-1 sm:gap-2 flex-shrink-0">
+
+                        {/* Edit Button */}
+                        <button
+                          className="text-blue-600 hover:text-blue-800 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `/editInvoice?id=${inv._id}`;
+                          }}
+                          title="Edit Invoice"
+                        >
+                          <FileText className="w-3 h-3" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          className="text-red-600 hover:text-red-700 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 cursor-pointer"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await deleteInvoice(inv._id, inv.invoice_no);
+                          }}
+                          title="Delete Invoice"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </button>
+                        
+                        {/* Mark as Paid Button */}
                         {inv.status !== 'paid' && (
-                          <div className="ml-4">
-                            <button
-                              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${inv._id}/status`, {
-                                  method: 'PUT',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ status: 'paid' }),
-                                });
-                                setInvoices((prev) =>
-                                  prev.map((i) => i._id === inv._id ? { ...i, status: 'paid' } : i)
-                                );
-                                if (selectedInvoice?._id === inv._id) {
-                                  setSelectedInvoice({ ...inv, status: 'paid' });
-                                }
-                              }}
-                            >
-                              Mark as Paid
-                            </button>
-                          </div>
+                          <button
+                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${inv._id}/status`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: 'paid' }),
+                              });
+                              setInvoices((prev) =>
+                                prev.map((i) => i._id === inv._id ? { ...i, status: 'paid' } : i)
+                              );
+                              if (selectedInvoice?._id === inv._id) {
+                                setSelectedInvoice({ ...inv, status: 'paid' });
+                              }
+                            }}
+                          >
+                            <span className="hidden sm:inline">Mark as Paid</span>
+                            <span className="sm:hidden">Paid</span>
+                          </button>
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
-            {/* Invoice Preview */}
-            <div className="w-full lg:w-3/5">
-              {selectedInvoice ? (
-                <div className="bg-white shadow rounded-lg">
-                  <div ref={exportButtonsRef} className="bg-gray-50 px-4 py-3 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <h2 className="font-medium text-gray-700 flex items-center">
-                      <Eye className="w-4 h-4 mr-2" /> Invoice Preview
-                    </h2>
-                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                      {/* Export to PDF Button */}
-                      <button
-                        onClick={exportToPDF}
-                        disabled={pdfLoading}
-                        className={`flex items-center justify-center px-4 py-2 ${
-                          pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-                        } text-white text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium`}
-                        title="Download PDF to your device"
-                      >
-                        {pdfLoading ? (
-                          <>
-                            <span className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-4 h-4 mr-2" />
-                            Export to PDF
-                          </>
-                        )}
-                      </button>
-                      {/* Share as PDF Button */}
-                      <button
-                        onClick={shareAsPDF}
-                        disabled={pdfLoading}
-                        className={`flex items-center justify-center px-4 py-2 ${
-                          pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
-                        } text-white text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium`}
-                        title="Share PDF via WhatsApp, Email, etc."
-                      >
-                        {pdfLoading ? (
-                          <>
-                            <span className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Share as PDF
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-white print:bg-white" ref={previewRef}>
-                    <InvoicePreview form={selectedInvoice} />
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-2xl shadow-xl p-12 text-center h-full flex items-center justify-center">
-                  <div className="text-gray-500">
-                    <div className="bg-gray-100 rounded-full p-6 w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                      <FileText className="w-12 h-12 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-700 mb-2">No Invoice Selected</h3>
-                    <p className="text-gray-500">Click on any invoice from the list to preview it here</p>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
-        )}
-      </div>
+          
+          {/* Invoice Preview - Full width on mobile */}
+          <div className="w-full lg:w-3/5">
+            {selectedInvoice ? (
+              <div className="bg-white shadow rounded-lg">
+                {/* Export Buttons - More compact on mobile */}
+                <div ref={exportButtonsRef} className="bg-gray-50 px-3 py-2 sm:px-4 sm:py-3 border-b flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center sm:gap-3">
+                  <h2 className="font-medium text-gray-700 flex items-center text-sm sm:text-base">
+                    <Eye className="w-4 h-4 mr-2" /> Invoice Preview
+                  </h2>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 w-full sm:w-auto">
+                    {/* Export to PDF Button */}
+                    <button
+                      onClick={exportToPDF}
+                      disabled={pdfLoading}
+                      className={`flex items-center justify-center px-3 py-2 sm:px-4 sm:py-2 ${
+                        pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                      } text-white text-xs sm:text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium`}
+                      title="Download PDF to your device"
+                    >
+                      {pdfLoading ? (
+                        <>
+                          <span className="animate-spin h-3 w-3 sm:h-4 sm:w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          Export to PDF
+                        </>
+                      )}
+                    </button>
+                    
+                    {/* Share as PDF Button */}
+                    <button
+                      onClick={shareAsPDF}
+                      disabled={pdfLoading}
+                      className={`flex items-center justify-center px-3 py-2 sm:px-4 sm:py-2 ${
+                        pdfLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                      } text-white text-xs sm:text-sm rounded-lg transition-all duration-200 shadow-sm hover:shadow-md font-medium`}
+                      title="Share PDF via WhatsApp, Email, etc."
+                    >
+                      {pdfLoading ? (
+                        <>
+                          <span className="animate-spin h-3 w-3 sm:h-4 sm:w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                          Share as PDF
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Invoice Preview Content */}
+                <div className="p-2 sm:p-4 bg-white print:bg-white" ref={previewRef}>
+                  <InvoicePreview form={selectedInvoice} />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-12 text-center h-full flex items-center justify-center">
+                <div className="text-gray-500">
+                  <div className="bg-gray-100 rounded-full p-4 sm:p-6 w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+                    <FileText className="w-8 h-8 sm:w-12 sm:h-12 text-gray-400" />
+                  </div>
+                  <h3 className="text-base sm:text-lg font-medium text-gray-700 mb-2">No Invoice Selected</h3>
+                  <p className="text-sm sm:text-base text-gray-500">Click on any invoice from the list to preview it here</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 }
