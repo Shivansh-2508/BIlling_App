@@ -364,8 +364,8 @@ export default function CreateInvoicePage() {
                           } ${isBuyerDropdownOpen ? 'border-emerald-500 ring-2 ring-emerald-200 shadow-lg' : ''}`}
                           onClick={handleBuyerDropdownToggle}
                         >
-                          <span className={`font-medium ${selectedBuyerName ? 'text-gray-900' : 'text-gray-500'}`}>
-                            {selectedBuyerName || '🔍 Search and select a buyer...'}
+                          <span className={`font-medium ${selectedBuyerName ? 'text-gray-900' : 'text-gray-700'}`}>
+                            {selectedBuyerName || 'Search buyers'}
                           </span>
                           <div className="flex items-center gap-2">
                             {selectedBuyerName && (
@@ -399,7 +399,7 @@ export default function CreateInvoicePage() {
                                   value={buyerSearchTerm}
                                   onChange={(e) => setBuyerSearchTerm(e.target.value)}
                                   placeholder="Type to search buyers..."
-                                  className="w-full pl-10 sm:pl-11 pr-4 py-2 sm:py-3 border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm font-medium"
+                                  className="w-full pl-10 sm:pl-11 pr-4 py-2 sm:py-3 border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm font-medium placeholder: text-black"
                                   onClick={(e) => e.stopPropagation()}
                                   autoFocus
                                 />

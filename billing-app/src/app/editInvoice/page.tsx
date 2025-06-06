@@ -402,7 +402,7 @@ function EditInvoiceContent() {
                               value={buyerSearchTerm}
                               onChange={(e) => setBuyerSearchTerm(e.target.value)}
                               placeholder="Type to search buyers..."
-                              className="w-full pl-10 sm:pl-11 pr-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm font-medium text-gray-700 placeholder-gray-400"
+                              className="w-full pl-10 sm:pl-11 pr-4 py-2 sm:py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm font-medium text-gray-700 placeholder-gray-700"
                               onClick={(e) => e.stopPropagation()}
                               autoFocus
                             />
@@ -598,7 +598,7 @@ function EditInvoiceContent() {
                           <label className="block text-xs sm:text-sm font-medium text-black mb-1">Packing Qty (kg)</label>
                           <input
                             type="number"
-                            className="w-full border border-gray-300 rounded-lg p-2 sm:p-3 focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                            className="w-full border border-gray-300 rounded-lg p-2 sm:p-3 focus:outline-none focus:border-blue-500 transition-colors text-sm placeholder: text-black"
                             value={item.packing_qty || ''}
                             onChange={e => handleItemChange(idx, 'packing_qty', Number(e.target.value))}
                             placeholder="0"
@@ -608,7 +608,7 @@ function EditInvoiceContent() {
                           <label className="block text-xs sm:text-sm font-medium text-gray-600 mb-1">No. of Units</label>
                           <input
                             type="number"
-                            className="w-full border border-gray-300 rounded-lg p-2 sm:p-3 focus:outline-none focus:border-blue-500 transition-colors text-sm"
+                            className="w-full border border-gray-300 rounded-lg p-2 sm:p-3 focus:outline-none focus:border-blue-500 transition-colors text-sm placeholder: text-black"
                             value={item.no_of_units || ''}
                             onChange={e => handleItemChange(idx, 'no_of_units', Number(e.target.value))}
                             placeholder="0"
