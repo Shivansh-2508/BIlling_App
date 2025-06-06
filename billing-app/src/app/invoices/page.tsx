@@ -389,12 +389,16 @@ export default function InvoiceListPage() {
         }))
       }));
 
+      const extractInvoiceNumber = (invoice_no: string) => {
+  // Extracts the first group of digits after the '#' (ignores leading zeros)
+  const match = invoice_no.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+};
+
       // Sort by invoice number in descending order (higher numbers first)
       const sortedInvoices = formattedInvoices.sort((a, b) => {
-        const aNum = parseInt(a.invoice_no) || 0;
-        const bNum = parseInt(b.invoice_no) || 0;
-        return bNum - aNum; // Descending order
-      });
+  return extractInvoiceNumber(a.invoice_no) - extractInvoiceNumber(b.invoice_no);
+});
 
       setInvoices(sortedInvoices);
       setLoading(false);
@@ -497,7 +501,7 @@ return (
               
               {/* Invoice List Items - Optimized for mobile */}
               <div className="divide-y divide-gray-100 max-h-[60vh] sm:max-h-[70vh] overflow-y-auto">
-                {invoices.map((inv) => (
+                {invoices.slice().reverse().map((inv)  => (
                   <div
                     key={inv._id}
                     className={`group p-3 sm:p-5 transition-all duration-200 cursor-pointer ${
