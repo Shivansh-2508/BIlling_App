@@ -92,8 +92,8 @@ function EditInvoiceContent() {
     const fetchData = async () => {
       try {
         const [buyersRes, productsRes] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/buyers`),
-          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/products`)
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/buyers`),
+          fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/products`)
         ]);
         if (buyersRes.ok) setBuyers(await buyersRes.json());
         if (productsRes.ok) setProducts(await productsRes.json());
@@ -111,7 +111,7 @@ function EditInvoiceContent() {
       setLoading(false);
       return;
     }
-    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${invoiceId}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${invoiceId}`)
       .then(res => res.json())
       .then(data => {
         if (data.error) setError(data.error);
@@ -245,7 +245,7 @@ function EditInvoiceContent() {
     try {
       const { _id, ...invoiceData } = invoice;
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${invoice._id}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${invoice._id}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
