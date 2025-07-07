@@ -166,14 +166,17 @@ export function InvoicePreview({ form }: PreviewProps) {
           <h1 className="text-3xl font-extrabold tracking-wide text-center font-serif">
             SHIVANSH INKS
           </h1>
-          <p className="text-sm text-gray-700 tracking-wider text-center uppercase">
+          <p className="text-sm text-black tracking-wider text-center uppercase">
             All Kinds of Flexo & Roto PTG Inks
+          </p> 
+          <p className="text-xs text-black text-center mt-1"> 
+            Gala no C/9, Gala no 1, Parasnath Complex, Mankoli Dapoda Road, Bhiwandi, <span>  Thane - 421302  </span>
           </p>
-          <p className="text-xs text-gray-600 text-center mt-1">
-            Gala no C/9, Gala no 1, Parasnath Complex, Mankoli Dapoda Road, Bhiwandi, Thane 421302
-          </p>
-          <p className="text-xs text-gray-600 text-center tracking-wider">
+         
+          <p className="text-xs text-black text-center tracking-wider">
             GSTIN: <span className="font-mono font-medium">27AREPK4801E1Z5</span>
+            <span className='px-2'> </span>
+            Phone: <span className="font-mono font-medium"> +91 9821280472 </span>
           </p>
         </div>
 
