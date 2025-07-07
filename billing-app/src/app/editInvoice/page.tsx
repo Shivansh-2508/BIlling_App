@@ -149,6 +149,19 @@ function EditInvoiceContent() {
         sum + (Number(item.packing_qty) || 0) * (Number(item.no_of_units) || 0) * (Number(item.rate_per_kg) || 0),
       0
     );
+    const cgst = subtotal * 0.09; // 9% CGST - auto-calculated like Create Invoice
+    const sgst = subtotal * 0.09; // 9% SGST - auto-calculated like Create Invoice
+    const total_amount = subtotal + cgst + sgst;
+    return { ...invoice, subtotal, cgst, sgst, total_amount };
+  }
+
+  // Recalculate totals with manual GST (preserves manually entered GST values)
+  function recalculateTotalsWithManualGST(invoice: Invoice): Invoice {
+    const subtotal = invoice.items.reduce(
+      (sum, item) =>
+        sum + (Number(item.packing_qty) || 0) * (Number(item.no_of_units) || 0) * (Number(item.rate_per_kg) || 0),
+      0
+    );
     const cgst = Number(invoice.cgst) || 0;
     const sgst = Number(invoice.sgst) || 0;
     const total_amount = subtotal + cgst + sgst;
@@ -160,7 +173,8 @@ function EditInvoiceContent() {
     setInvoice((prev) => {
       if (!prev) return prev;
       const updated = { ...prev, [field]: value };
-      if (field === 'cgst' || field === 'sgst') return recalculateTotals(updated);
+      // If user manually changes GST, preserve their input
+      if (field === 'cgst' || field === 'sgst') return recalculateTotalsWithManualGST(updated);
       return updated;
     });
   };
@@ -639,7 +653,7 @@ function EditInvoiceContent() {
             </div>
 
             {/* Totals Card */}
-            <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
+            {/* <div className="bg-white/80 backdrop-blur-sm border border-white/20 rounded-xl sm:rounded-2xl shadow-xl overflow-hidden">
               <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-purple-100">
                 <h2 className="text-base sm:text-lg font-semibold text-purple-900">Invoice Totals</h2>
               </div>
@@ -687,7 +701,7 @@ function EditInvoiceContent() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
