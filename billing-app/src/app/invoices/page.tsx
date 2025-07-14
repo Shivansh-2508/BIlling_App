@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { getInvoices } from '@/utils/api';
 import { InvoicePreview } from '@/components/InvoicePreview';
 import { Download, Share2, FileText, Eye, Clock, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
@@ -55,13 +56,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('https://billing-app-onzk.onrender.com/invoices')
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error('Failed to fetch invoices');
-        }
-        return res.json();
-      })
+    getInvoices()
       .then((data) => {
         // Format dates and ensure numeric fields are properly typed
         const formattedInvoices = data.map((inv: Invoice) => ({
@@ -151,7 +146,7 @@ export default function InvoiceListPage() {
     `;
 
     // 4. Send to backend for PDF generation
-    const response = await fetch('https://billing-app-onzk.onrender.com/export-invoice-pdf', {
+    const response = await fetch('http://localhost:5000/export-invoice-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -337,7 +332,7 @@ export default function InvoiceListPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${invoiceId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${invoiceId}`, {
         method: 'DELETE',
       });
 
@@ -365,7 +360,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
   setLoading(true);
-  fetch('https://billing-app-onzk.onrender.com/invoices')
+  fetch('http://localhost:5000/invoices')
     .then((res) => {
       if (!res.ok) {
         throw new Error('Failed to fetch invoices');
@@ -456,7 +451,7 @@ return (
             <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0" />
             <div>
               <p className="font-medium text-sm sm:text-base">{error}</p>
-              <p className="text-xs sm:text-sm text-red-600 mt-1">Please ensure your API server is running at https://billing-app-onzk.onrender.com</p>
+              <p className="text-xs sm:text-sm text-red-600 mt-1">Please ensure your API server is running at http://localhost:5000</p>
             </div>
           </div>
         </div>
@@ -604,7 +599,7 @@ return (
                             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
                             onClick={async (e) => {
                               e.stopPropagation();
-                              await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${inv._id}/status`, {
+                              await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'}/invoices/${inv._id}/status`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ status: 'paid' }),

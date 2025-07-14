@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FileText, Plus, Save, Search, ChevronDown, X, User, AlertCircle, Calendar, Package, Hash, ShoppingCart, Eye } from 'lucide-react';
 import { InvoicePreview } from '@/components/InvoicePreview';
 import BackToHome from '@/components/BackToHome';
+import { getBuyers, getProducts } from '@/utils/api'; // Adjust the import based on your project structure
 
 export default function CreateInvoicePage() {
   const router = useRouter();
@@ -61,8 +62,8 @@ export default function CreateInvoicePage() {
   // Fetch data on mount
   useEffect(() => {
     Promise.all([
-      fetch("https://billing-app-onzk.onrender.com/buyers").then(res => res.json()),
-      fetch("https://billing-app-onzk.onrender.com/products").then(res => res.json())
+      getBuyers().catch(() => []),
+      getProducts().catch(() => [])
     ])
     .then(([buyersData, productsData]) => {
       setBuyers(buyersData);
@@ -72,7 +73,7 @@ export default function CreateInvoicePage() {
   }, []);
 
   // Filter buyers based on search term
-  const filteredBuyers = buyers.filter(buyer =>
+  const filteredBuyers = buyers.filter((buyer: Buyer) =>
     buyer.name.toLowerCase().includes(buyerSearchTerm.toLowerCase())
   );
 
@@ -225,7 +226,7 @@ export default function CreateInvoicePage() {
         total_amount: totalAmount,
       };
 
-      const res = await fetch('https://billing-app-onzk.onrender.com/invoices', {
+      const res = await fetch('http://localhost:5000/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(invoicePayload),
@@ -608,7 +609,7 @@ export default function CreateInvoicePage() {
                                 type="number"
                                 value={item.packing_qty * item.no_of_units || 0}
                                 readOnly
-                                className="w-full p-2 sm:p-4 border-2 border-purple-200 rounded-lg sm:rounded-xl text-gray-800 bg-purple-50/50 cursor-not-allowed font-bold text-sm sm:text-base"
+                                className="w-full p-2 sm:p-4 border-2 border-purple-200 rounded-lg sm:rounded-xl text-gray-800 bg-purple-50/50 cursor-not-allowed font-bold text-sm sm:text-lg"
                               />
                             </div>
 
