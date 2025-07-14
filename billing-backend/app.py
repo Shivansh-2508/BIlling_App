@@ -14,13 +14,52 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# MongoDB setup
-MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI)
-db = client["billing-app"]
-invoices = db["invoices"]
-buyers = db["buyers"]
-products = db["products"]
+
+# --- Dynamic MongoDB connection per user ---
+from firebase_utils import verify_firebase_token, get_user_mongo_uri
+from functools import lru_cache
+from threading import Lock
+
+# Cache MongoClient per user (thread-safe)
+_mongo_clients = {}
+_mongo_clients_lock = Lock()
+
+def get_user_db(user_id):
+    """
+    Get (and cache) a MongoClient for the user's Mongo URI, return the DB handle.
+    """
+    from pymongo import MongoClient
+    with _mongo_clients_lock:
+        if user_id in _mongo_clients:
+            client = _mongo_clients[user_id]
+        else:
+            mongo_uri = get_user_mongo_uri(user_id)
+            if not mongo_uri:
+                raise Exception("No Mongo URI found for user")
+            client = MongoClient(mongo_uri)
+            _mongo_clients[user_id] = client
+    # Use a fixed DB name, or fetch from user profile if needed
+    return client["billing-app"]
+
+# --- Auth decorator ---
+from functools import wraps
+def require_firebase_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Missing or invalid Authorization header'}), 401
+        id_token = auth_header.split('Bearer ')[-1]
+        try:
+            decoded_token = verify_firebase_token(id_token)
+            user_id = decoded_token['uid']
+        except Exception as e:
+            print('Firebase token verification failed:', e)
+            return jsonify({'error': 'Invalid or expired token'}), 401
+        # Attach user_id to request context
+        request.user_id = user_id
+        return f(*args, **kwargs)
+    return decorated
 
 @app.route("/")
 def home():
@@ -36,7 +75,10 @@ def convert_objectid(doc):
 
 # GET: All invoices
 @app.route("/invoices", methods=["GET"])
+@require_firebase_auth
 def get_invoices():
+    db = get_user_db(request.user_id)
+    invoices = db["invoices"]
     all_invoices = list(invoices.find({}, {
         "_id": 1,
         "invoice_no": 1,
@@ -56,15 +98,15 @@ def get_invoices():
 
 # GET: Single invoice by ID
 @app.route("/invoices/<invoice_id>", methods=["GET"])
+@require_firebase_auth
 def get_invoice(invoice_id):
     try:
+        db = get_user_db(request.user_id)
+        invoices = db["invoices"]
         invoice = invoices.find_one({"_id": ObjectId(invoice_id)})
         if not invoice:
             return jsonify({"error": "Invoice not found"}), 404
-        
-        # Debug: Check if GSTIN exists in retrieved invoice
         print(f"Retrieved invoice {invoice_id}, GSTIN: {invoice.get('gstin', 'NOT FOUND')}")
-        
         return jsonify(convert_objectid(invoice))
     except Exception as e:
         print(f"Error fetching invoice {invoice_id}:", e)
@@ -72,43 +114,31 @@ def get_invoice(invoice_id):
 
 # POST: Create new invoice
 @app.route('/invoices', methods=['POST'])
+@require_firebase_auth
 def add_invoice():
     try:
+        db = get_user_db(request.user_id)
+        invoices = db["invoices"]
+        products = db["products"]
         data = request.get_json()
-        
-        # Debug: Print received data to check GSTIN
         print("Received invoice data:", data)
         print("GSTIN value:", data.get('gstin', 'NOT FOUND'))
-
-        # Validate required fields - gstin should be optional
         required_fields = ['invoice_no', 'date', 'buyer_name', 'address', 'items', 'subtotal', 'cgst', 'sgst', 'total_amount']
-        
-        # Check for missing fields
-        missing_fields = []
-        for field in required_fields:
-            if field not in data or data[field] is None:
-                missing_fields.append(field)
-        
+        missing_fields = [field for field in required_fields if field not in data or data[field] is None]
         if missing_fields:
             return jsonify({'error': f'Missing fields: {", ".join(missing_fields)}'}), 400
-
-        # Ensure gstin field exists, even if empty
         if 'gstin' not in data:
             data['gstin'] = ''
             print("GSTIN field was missing, setting to empty string")
-        
-        # Additional validation for GSTIN (optional)
         gstin_value = data.get('gstin', '')
         if gstin_value and len(gstin_value) != 15:
             print(f"Warning: GSTIN {gstin_value} is not 15 characters long")
-
-        # Ensure all expected fields are present for consistency
         invoice_data = {
             'invoice_no': data['invoice_no'],
             'date': data['date'],
             'buyer_name': data['buyer_name'],
             'address': data['address'],
-            'gstin': data.get('gstin', ''),  # Default to empty string if not provided
+            'gstin': data.get('gstin', ''),
             'items': data['items'],
             'subtotal': data['subtotal'],
             'cgst': data['cgst'],
@@ -116,16 +146,12 @@ def add_invoice():
             'total_amount': data['total_amount'],
             'status': 'unpaid'
         }
-
         result = invoices.insert_one(invoice_data)
         print(f"Invoice saved with ID: {result.inserted_id}")
-        
-        # --- Deduct stock for each product in the invoice ---
         for item in data['items']:
             product_name = item.get('product_name')
             qty_to_deduct = float(item.get('packing_qty', 0)) * float(item.get('no_of_units', 0))
             if product_name and qty_to_deduct > 0:
-                # Find the product by name
                 product = products.find_one({"name": product_name})
                 if product:
                     new_stock = float(product.get('stock_quantity', 0)) - qty_to_deduct
@@ -134,10 +160,7 @@ def add_invoice():
                         {"$set": {"stock_quantity": new_stock}}
                     )
                     print(f"Deducted {qty_to_deduct} from {product_name}, new stock: {new_stock}")
-
         return jsonify({'message': 'Invoice saved', 'id': str(result.inserted_id)}), 201
-
-        
     except Exception as e:
         print('Error in /invoices:', e)
         import traceback
@@ -146,14 +169,14 @@ def add_invoice():
 
 # PUT: Update invoice
 @app.route('/invoices/<invoice_id>', methods=['PUT'])
+@require_firebase_auth
 def update_invoice(invoice_id):
     try:
+        db = get_user_db(request.user_id)
+        invoices = db["invoices"]
         data = request.get_json()
-        
-        # Ensure gstin field exists in update data
         if 'gstin' not in data:
             data['gstin'] = ''
-            
         result = invoices.update_one(
             {"_id": ObjectId(invoice_id)},
             {"$set": data}
@@ -166,8 +189,11 @@ def update_invoice(invoice_id):
         return jsonify({"error": "Invalid invoice ID or server error"}), 400
 
 @app.route('/invoices/<invoice_id>/status', methods=['PUT'])
+@require_firebase_auth
 def update_invoice_status(invoice_id):
     try:
+        db = get_user_db(request.user_id)
+        invoices = db["invoices"]
         data = request.get_json()
         status = data.get('status')
         if status not in ['paid', 'unpaid']:
@@ -185,8 +211,11 @@ def update_invoice_status(invoice_id):
     
 # DELETE: Delete invoice
 @app.route('/invoices/<invoice_id>', methods=['DELETE'])
+@require_firebase_auth
 def delete_invoice(invoice_id):
     try:
+        db = get_user_db(request.user_id)
+        invoices = db["invoices"]
         result = invoices.delete_one({"_id": ObjectId(invoice_id)})
         if result.deleted_count == 0:
             return jsonify({"error": "Invoice not found"}), 404
@@ -228,27 +257,29 @@ async def html_to_pdf_playwright(html_content):
 
 # GET: All buyers (for dropdown)
 @app.route("/buyers", methods=["GET"])
+@require_firebase_auth
 def get_buyers():
+    db = get_user_db(request.user_id)
+    buyers = db["buyers"]
     all_buyers = list(buyers.find({}, {"_id": 1, "name": 1, "address": 1, "gstin": 1}))
     for buyer in all_buyers:
         buyer["_id"] = str(buyer["_id"])
-        # Ensure gstin field exists
         if "gstin" not in buyer:
             buyer["gstin"] = ""
     return jsonify(all_buyers)
 
 # GET: Single buyer by ID
 @app.route("/buyers/<buyer_id>", methods=["GET"])
+@require_firebase_auth
 def get_buyer(buyer_id):
     try:
+        db = get_user_db(request.user_id)
+        buyers = db["buyers"]
         buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
         if not buyer:
             return jsonify({"error": "Buyer not found"}), 404
-        
-        # Ensure gstin field exists
         if "gstin" not in buyer:
             buyer["gstin"] = ""
-            
         return jsonify(convert_objectid(buyer))
     except Exception as e:
         print(f"Error fetching buyer {buyer_id}:", e)
@@ -256,34 +287,34 @@ def get_buyer(buyer_id):
 
 # POST: Add new buyer (admin use)
 @app.route("/buyers", methods=["POST"])
+@require_firebase_auth
 def add_buyer():
+    db = get_user_db(request.user_id)
+    buyers = db["buyers"]
     data = request.json
     name = data.get("name")
     address = data.get("address")
-    gstin = data.get("gstin", "")  # GST number, optional with empty default
-
+    gstin = data.get("gstin", "")
     if not name or not address:
         return jsonify({"error": "Both name and address are required"}), 400
-
     buyer_data = {
-        "name": name, 
+        "name": name,
         "address": address,
         "gstin": gstin
     }
-
     result = buyers.insert_one(buyer_data)
     return jsonify({"message": "Buyer added successfully", "id": str(result.inserted_id)}), 201
 
 # PUT: Update buyer
 @app.route('/buyers/<buyer_id>', methods=['PUT'])
+@require_firebase_auth
 def update_buyer(buyer_id):
     try:
+        db = get_user_db(request.user_id)
+        buyers = db["buyers"]
         data = request.get_json()
-        
-        # Ensure gstin field exists in update data
         if 'gstin' not in data:
             data['gstin'] = ''
-            
         result = buyers.update_one(
             {"_id": ObjectId(buyer_id)},
             {"$set": data}
@@ -297,8 +328,11 @@ def update_buyer(buyer_id):
 
 # DELETE: Delete buyer
 @app.route('/buyers/<buyer_id>', methods=['DELETE'])
+@require_firebase_auth
 def delete_buyer(buyer_id):
     try:
+        db = get_user_db(request.user_id)
+        buyers = db["buyers"]
         result = buyers.delete_one({"_id": ObjectId(buyer_id)})
         if result.deleted_count == 0:
             return jsonify({"error": "Buyer not found"}), 404
@@ -310,10 +344,13 @@ def delete_buyer(buyer_id):
 # --- Product Routes ---
 
 @app.route("/products", methods=["GET"])
+@require_firebase_auth
 def get_products():
+    db = get_user_db(request.user_id)
+    products = db["products"]
     all_products = list(products.find({}, {
-        "_id": 1, 
-        "name": 1, 
+        "_id": 1,
+        "name": 1,
         "stock_quantity": 1,
         "default_rate_per_kg": 1,
         "hsn_code": 1
@@ -330,8 +367,11 @@ def get_products():
 
 
 @app.route("/products/<product_id>", methods=["GET"])
+@require_firebase_auth
 def get_product(product_id):
     try:
+        db = get_user_db(request.user_id)
+        products = db["products"]
         product = products.find_one({"_id": ObjectId(product_id)})
         if not product:
             return jsonify({"error": "Product not found"}), 404
@@ -347,30 +387,33 @@ def get_product(product_id):
         return jsonify({"error": "Invalid product ID or server error"}), 400
 
 @app.route("/products", methods=["POST"])
+@require_firebase_auth
 def add_product():
+    db = get_user_db(request.user_id)
+    products = db["products"]
     data = request.json
     name = data.get("name")
     stock_quantity = data.get("stock_quantity", 0)
     default_rate_per_kg = data.get("default_rate_per_kg", 0)
     hsn_code = data.get("hsn_code", "")
-
     if not name or not hsn_code or stock_quantity is None or default_rate_per_kg is None:
         return jsonify({"error": "Product name, HSN code, stock quantity, and rate per kg are required"}), 400
-
     product_data = {
         "name": name,
         "stock_quantity": stock_quantity,
         "default_rate_per_kg": default_rate_per_kg,
         "hsn_code": hsn_code
     }
-
     result = products.insert_one(product_data)
     return jsonify({"message": "Product added successfully", "id": str(result.inserted_id)}), 201
 
 
 @app.route('/products/<product_id>/stock', methods=['PUT'])
+@require_firebase_auth
 def update_stock_quantity(product_id):
     try:
+        db = get_user_db(request.user_id)
+        products = db["products"]
         data = request.get_json()
         delta = data.get('quantity')
         if delta is None:
@@ -379,14 +422,11 @@ def update_stock_quantity(product_id):
             delta = float(delta)
         except (ValueError, TypeError):
             return jsonify({"error": "Invalid quantity format"}), 400
-
         product = products.find_one({"_id": ObjectId(product_id)})
         if not product:
             return jsonify({"error": "Product not found"}), 404
-
         current_stock = float(product.get("stock_quantity", 0))
-        new_stock = current_stock + delta  # Allow negative stock
-
+        new_stock = current_stock + delta
         result = products.update_one(
             {"_id": ObjectId(product_id)},
             {"$set": {"stock_quantity": new_stock}}
@@ -397,8 +437,11 @@ def update_stock_quantity(product_id):
         return jsonify({"error": "Invalid product ID or server error"}), 400
     
 @app.route('/products/<product_id>', methods=['PUT'])
+@require_firebase_auth
 def update_product(product_id):
     try:
+        db = get_user_db(request.user_id)
+        products = db["products"]
         data = request.get_json()
         update_data = {}
         if "name" in data:
@@ -423,8 +466,11 @@ def update_product(product_id):
         return jsonify({"error": "Invalid product ID or server error"}), 400
 
 @app.route('/products/<product_id>', methods=['DELETE'])
+@require_firebase_auth
 def delete_product(product_id):
     try:
+        db = get_user_db(request.user_id)
+        products = db["products"]
         result = products.delete_one({"_id": ObjectId(product_id)})
         if result.deleted_count == 0:
             return jsonify({"error": "Product not found"}), 404
@@ -448,6 +494,8 @@ def get_buyer_statement(buyer_id):
             return jsonify({"error": "Invalid buyer ID format"}), 400
             
         # First, get the buyer name from the ID
+        db = get_user_db(request.user_id)
+        buyers = db["buyers"]
         buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
         if not buyer:
             return jsonify({"error": "Buyer not found"}), 404
@@ -490,6 +538,7 @@ def get_buyer_statement(buyer_id):
         }
         
         # Then get invoices for this buyer with date filters
+        invoices = db["invoices"]
         invoices_list = list(invoices.find(query, projection))
         
         # Early return if no invoices found
