@@ -21,7 +21,7 @@ interface Product {
   hsnCode?: string;
 }
 
-const API_BASE = "https://billing-app-onzk.onrender.com";
+const API_BASE = "http://localhost:5000/";
 
 export default function StockCRUDPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -49,11 +49,18 @@ export default function StockCRUDPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/products`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_BASE}/products`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch products.");
       const data = await res.json();
 
-      const processedData = data.map((product: any) => ({
+  const processedData = data.map((product: { _id: string; name: string; stock_quantity?: number; default_rate_per_kg?: number; hsn_code?: string }) => ({
         _id: product._id,
         name: product.name,
         stock: Number(product.stock_quantity ?? 0),
@@ -62,7 +69,7 @@ export default function StockCRUDPage() {
       }));
 
       setProducts(processedData);
-    } catch (err) {
+  } catch {
       setError("Failed to load products.");
     }
     setLoading(false);
@@ -108,9 +115,10 @@ export default function StockCRUDPage() {
     setError("");
     setSuccess("");
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/products`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           name: newProduct.name.trim(),
           stock_quantity: Number(newProduct.stock),
@@ -118,6 +126,10 @@ export default function StockCRUDPage() {
           hsn_code: newProduct.hsnCode.trim(),
         }),
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to create product.");
       setSuccess("Product created successfully!");
       setNewProduct({ name: "", stock: "", ratePerKg: "", hsnCode: "" });
@@ -149,11 +161,16 @@ export default function StockCRUDPage() {
       return;
     }
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/products/${id}/stock`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ quantity: qty }),
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to update stock.");
       setSuccess("Stock updated successfully!");
       setEditId(null);
@@ -171,9 +188,15 @@ export default function StockCRUDPage() {
     setError("");
     setSuccess("");
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/products/${id}`, {
         method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to delete product.");
       setSuccess("Product deleted successfully!");
       fetchProducts();
@@ -259,7 +282,7 @@ export default function StockCRUDPage() {
                   value={newProduct.stock}
                   onChange={(e) => {
                     // Remove leading zeros except for '0'
-                    let val = e.target.value.replace(/^0+(?=\d)/, "");
+                    const val = e.target.value.replace(/^0+(?=\d)/, "");
                     setNewProduct({ ...newProduct, stock: val });
                   }}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
@@ -278,7 +301,7 @@ export default function StockCRUDPage() {
                   value={newProduct.ratePerKg}
                   onChange={(e) => {
                     // Remove leading zeros except for '0'
-                    let val = e.target.value.replace(/^0+(?=\d)/, "");
+                    const val = e.target.value.replace(/^0+(?=\d)/, "");
                     setNewProduct({ ...newProduct, ratePerKg: val });
                   }}
                   className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm sm:text-base placeholder:text-gray-500 text-gray-700"
@@ -369,7 +392,7 @@ export default function StockCRUDPage() {
                               type="number"
                               value={editProduct.stock}
                               onChange={(e) => {
-                                let val = e.target.value.replace(/^0+(?=\d)/, "");
+                                const val = e.target.value.replace(/^0+(?=\d)/, "");
                                 setEditProduct({ ...editProduct, stock: val });
                               }}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-black"
@@ -479,7 +502,7 @@ export default function StockCRUDPage() {
                               type="number"
                               value={editProduct.stock}
                               onChange={(e) => {
-                                let val = e.target.value.replace(/^0+(?=\d)/, "");
+                                const val = e.target.value.replace(/^0+(?=\d)/, "");
                                 setEditProduct({ ...editProduct, stock: val });
                               }}
                               className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm text-black"

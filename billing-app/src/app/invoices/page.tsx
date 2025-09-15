@@ -55,8 +55,15 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch('https://billing-app-onzk.onrender.com/invoices')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    fetch('http://localhost:5000/invoices', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
       .then((res) => {
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return Promise.reject(new Error('Unauthorized'));
+        }
         if (!res.ok) {
           throw new Error('Failed to fetch invoices');
         }
@@ -115,18 +122,19 @@ export default function InvoiceListPage() {
 
     // 2. Collect all stylesheets as <style> tags
     let styles = '';
-    Array.from(document.styleSheets).forEach((styleSheet: any) => {
+    Array.from(document.styleSheets).forEach((styleSheet) => {
       try {
-        if (styleSheet.href) {
-          styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
-        } else if (styleSheet.cssRules) {
+        const sheet = styleSheet as CSSStyleSheet;
+        if (sheet.href) {
+          styles += `<link rel="stylesheet" href="${sheet.href}">`;
+        } else if (sheet.cssRules) {
           styles += '<style>';
-          Array.from(styleSheet.cssRules).forEach((rule: any) => {
-            styles += rule.cssText;
+          Array.from(sheet.cssRules).forEach((rule) => {
+            styles += (rule as CSSStyleRule).cssText;
           });
           styles += '</style>';
         }
-      } catch (e) {
+      } catch (_e) {
         // Ignore CORS issues
       }
     });
@@ -151,9 +159,13 @@ export default function InvoiceListPage() {
     `;
 
     // 4. Send to backend for PDF generation
-    const response = await fetch('https://billing-app-onzk.onrender.com/export-invoice-pdf', {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const response = await fetch('http://localhost:5000/export-invoice-pdf', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({
         html,
         file_name: `Invoice_${selectedInvoice.invoice_no}.pdf`
@@ -173,9 +185,9 @@ export default function InvoiceListPage() {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
 
-  } catch (err) {
+  } catch (_err) {
     alert('PDF export failed. Please try again.');
-    console.error(err);
+    console.error(_err);
   } finally {
     setPdfLoading(false);
   }
@@ -200,8 +212,8 @@ export default function InvoiceListPage() {
           });
           setPdfLoading(false);
           return;
-        } catch (shareError) {
-          // fallback to share window
+        } catch (_shareError) {
+          // ignore
         }
       }
 
@@ -217,18 +229,19 @@ export default function InvoiceListPage() {
 
       // Copy all stylesheets from the main document
       let styles = '';
-      Array.from(document.styleSheets).forEach((styleSheet: any) => {
+      Array.from(document.styleSheets).forEach((styleSheet) => {
         try {
-          if (styleSheet.href) {
-            styles += `<link rel="stylesheet" href="${styleSheet.href}">`;
-          } else if (styleSheet.cssRules) {
+          const sheet = styleSheet as CSSStyleSheet;
+          if (sheet.href) {
+            styles += `<link rel="stylesheet" href="${sheet.href}">`;
+          } else if (sheet.cssRules) {
             styles += '<style>';
-            Array.from(styleSheet.cssRules).forEach((rule: any) => {
-              styles += rule.cssText;
+            Array.from(sheet.cssRules).forEach((rule) => {
+              styles += (rule as CSSStyleRule).cssText;
             });
             styles += '</style>';
           }
-        } catch (e) {}
+        } catch (_e) {}
       });
 
       const printHTML = `
@@ -337,7 +350,7 @@ export default function InvoiceListPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${invoiceId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/'}/invoices/${invoiceId}`, {
         method: 'DELETE',
       });
 
@@ -365,7 +378,7 @@ export default function InvoiceListPage() {
 
   useEffect(() => {
   setLoading(true);
-  fetch('https://billing-app-onzk.onrender.com/invoices')
+  fetch('http://localhost:5000/invoices')
     .then((res) => {
       if (!res.ok) {
         throw new Error('Failed to fetch invoices');
@@ -396,16 +409,19 @@ export default function InvoiceListPage() {
 };
 
       // Sort by invoice number in descending order (higher numbers first)
-      const sortedInvoices = formattedInvoices.sort((a, b) => {
-  return extractInvoiceNumber(a.invoice_no) - extractInvoiceNumber(b.invoice_no);
-});
+      const sortedInvoices = formattedInvoices.sort((a: Invoice, b: Invoice) => {
+        const aDate = new Date(a.date || '').getTime();
+        const bDate = new Date(b.date || '').getTime();
+        return bDate - aDate;
+      });
 
       setInvoices(sortedInvoices);
       setLoading(false);
     })
     .catch((err) => {
       console.error('Error fetching invoices:', err);
-      setError(err.message);
+      const message = err instanceof Error ? err.message : 'Failed to fetch invoices';
+      setError(message);
       setLoading(false);
     });
 }, []);
@@ -456,7 +472,7 @@ return (
             <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0" />
             <div>
               <p className="font-medium text-sm sm:text-base">{error}</p>
-              <p className="text-xs sm:text-sm text-red-600 mt-1">Please ensure your API server is running at https://billing-app-onzk.onrender.com</p>
+              <p className="text-xs sm:text-sm text-red-600 mt-1">Please ensure your API server is running at http://localhost:5000/</p>
             </div>
           </div>
         </div>
@@ -604,7 +620,7 @@ return (
                             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-2 py-1.5 sm:px-3 sm:py-2 rounded-md sm:rounded-lg text-xs font-medium transition-all duration-200 shadow-sm hover:shadow-md"
                             onClick={async (e) => {
                               e.stopPropagation();
-                              await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://billing-app-onzk.onrender.com'}/invoices/${inv._id}/status`, {
+                              await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/'}/invoices/${inv._id}/status`, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ status: 'paid' }),

@@ -6,26 +6,36 @@ import { FileText, Plus, Save, Search, ChevronDown, X, User, AlertCircle, Calend
 import { InvoicePreview } from '@/components/InvoicePreview';
 import BackToHome from '@/components/BackToHome';
 
+type Buyer = { _id: string; name: string; gstin?: string; address?: string };
+type Product = { _id: string; name: string; default_packing_qty?: number; default_rate_per_kg?: number; hsn_code?: string };
+type Item = { product_name: string; packing_qty: number; no_of_units: number; rate_per_kg: number; hsn_code: string };
+
 export default function CreateInvoicePage() {
   const router = useRouter();
-  const fmt = (n: number | string) => Number(n).toFixed(2);
   
   // Buyer-related state
-  const [buyers, setBuyers] = useState([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [selectedBuyerId, setSelectedBuyerId] = useState('');
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<Product[]>([]);
   
   // Search functionality state for buyer dropdown
   const [buyerSearchTerm, setBuyerSearchTerm] = useState('');
   const [isBuyerDropdownOpen, setIsBuyerDropdownOpen] = useState(false);
   const [selectedBuyerName, setSelectedBuyerName] = useState('');
-  const buyerDropdownRef = useRef(null);
+  const buyerDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Mobile preview toggle state
   const [showMobilePreview, setShowMobilePreview] = useState(false);
 
   // Invoice form state
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{ 
+    invoice_no: '',
+    date: '',
+    buyer_name: '',
+    address: '',
+    gstin: '',
+    items: Item[],
+  }>({
     invoice_no: '',
     date: '',
     buyer_name: '',
@@ -37,7 +47,7 @@ export default function CreateInvoicePage() {
   });
 
   // Error state
-  const [errors, setErrors] = useState({
+  const [errors, setErrors] = useState<{ invoice_no: string; date: string; buyer: string; items: string[] }>({
     invoice_no: '',
     date: '',
     buyer: '',
@@ -60,19 +70,29 @@ export default function CreateInvoicePage() {
 
   // Fetch data on mount
   useEffect(() => {
-    Promise.all([
-      fetch("https://billing-app-onzk.onrender.com/buyers").then(res => res.json()),
-      fetch("https://billing-app-onzk.onrender.com/products").then(res => res.json())
-    ])
-    .then(([buyersData, productsData]) => {
-      setBuyers(buyersData);
-      setProducts(productsData);
-    })
-    .catch(err => console.error("Error fetching data:", err));
+    const run = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const [buyersRes, productsRes] = await Promise.all([
+          fetch('http://localhost:5000/buyers', { headers: token ? { Authorization: `Bearer ${token}` } : undefined }),
+          fetch('http://localhost:5000/products', { headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+        ]);
+        if (buyersRes.status === 401 || productsRes.status === 401) {
+          if (typeof window !== 'undefined') window.location.href = '/login';
+          return;
+        }
+        const [buyersData, productsData] = await Promise.all([buyersRes.json(), productsRes.json()]);
+        setBuyers(buyersData);
+        setProducts(productsData);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    };
+    run();
   }, []);
 
   // Filter buyers based on search term
-  const filteredBuyers = buyers.filter(buyer =>
+  const filteredBuyers = buyers.filter((buyer: Buyer) =>
     buyer.name.toLowerCase().includes(buyerSearchTerm.toLowerCase())
   );
 
@@ -85,7 +105,7 @@ export default function CreateInvoicePage() {
   };
 
   // Handle buyer selection from dropdown
-  const handleBuyerSelect = (buyer) => {
+  const handleBuyerSelect = (buyer: Buyer) => {
     setSelectedBuyerId(buyer._id);
     setSelectedBuyerName(buyer.name);
     setBuyerSearchTerm('');
@@ -132,12 +152,9 @@ export default function CreateInvoicePage() {
   };
 
   // Handle item changes
-  const handleItemChange = (index: number, field: string, value: any) => {
+  const handleItemChange = (index: number, field: keyof Item, value: string | number) => {
     const updated = [...form.items];
-
-    updated[index][field] = ['product_name', 'hsn_code'].includes(field)
-      ? value
-      : Number(value);
+    updated[index] = { ...updated[index], [field]: (field === 'product_name' || field === 'hsn_code') ? String(value) : Number(value) } as Item;
 
     if (field === 'product_name') {
       const newErrors = [...errors.items];
@@ -197,17 +214,17 @@ export default function CreateInvoicePage() {
       return;
     }
 
-    const selected = products.find(p => p.name === value);
+    const selected = products.find((p: Product) => p.name === value);
     if (selected) {
       handleItemChange(idx, 'product_name', selected.name);
-      handleItemChange(idx, 'packing_qty', selected.default_packing_qty);
-      handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg);
-      handleItemChange(idx, 'hsn_code', selected.hsn_code);
+      handleItemChange(idx, 'packing_qty', selected.default_packing_qty || 0);
+      handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg || 0);
+      handleItemChange(idx, 'hsn_code', selected.hsn_code || '');
     }
   };
 
   // Unified save invoice function
-  const saveInvoice = async (e) => {
+  const saveInvoice = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -225,11 +242,16 @@ export default function CreateInvoicePage() {
         total_amount: totalAmount,
       };
 
-      const res = await fetch('https://billing-app-onzk.onrender.com/invoices', {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch('http://localhost:5000/invoices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(invoicePayload),
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
 
       if (res.ok) {
         alert('Invoice saved successfully!');
@@ -434,7 +456,7 @@ export default function CreateInvoicePage() {
                                 <div className="p-6 sm:p-8 text-gray-500 text-sm text-center">
                                   <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-3 text-gray-400" />
                                   <p className="font-medium">No buyers found</p>
-                                  <p className="text-xs">matching "{buyerSearchTerm}"</p>
+                                  <p className="text-xs">matching &quot;{buyerSearchTerm}&quot;</p>
                                 </div>
                               ) : (
                                 <div className="p-6 sm:p-8 text-gray-500 text-sm text-center">

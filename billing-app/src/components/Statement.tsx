@@ -1,31 +1,45 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, X, Calendar, FileText, Download, Filter, User, TrendingUp, Eye, RefreshCw, AlertCircle, Share2 } from 'lucide-react';
+import { Search, ChevronDown, X, Calendar, FileText, Download, User, TrendingUp, Eye, RefreshCw, AlertCircle } from 'lucide-react';
 import BackToHome from '@/components/BackToHome';
 
-export default function PrintableStatement({ apiBaseUrl }) {
-  const [buyers, setBuyers] = useState([]);
-  const [selectedBuyer, setSelectedBuyer] = useState('');
-  const [statement, setStatement] = useState(null);
+type Buyer = { _id: string; name: string; gstin?: string; address?: string };
+type ItemLite = { total_qty?: number | string } & { [key: string]: unknown };
+type InvoiceLite = { _id: string; invoice_no: string; date: string; items?: ItemLite[]; total_amount?: number; status?: string };
+type StatementData = {
+  buyer: string;
+  buyer_gstin?: string;
+  invoice_count: number;
+  total_qty: number;
+  total_amount: number;
+  invoices: InvoiceLite[];
+  filter?: { start_date?: string; end_date?: string };
+};
+
+export default function PrintableStatement({ apiBaseUrl }: { apiBaseUrl: string }) {
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
+  const [selectedBuyer, setSelectedBuyer] = useState<string>('');
+  const [statement, setStatement] = useState<StatementData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const printRef = useRef(null);
+  const printRef = useRef<HTMLDivElement | null>(null);
 
   // Search functionality state
   const [buyerSearchTerm, setBuyerSearchTerm] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedBuyerName, setSelectedBuyerName] = useState('');
-  const dropdownRef = useRef(null);
+  const [selectedBuyerName, setSelectedBuyerName] = useState<string>('');
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetchBuyers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
     };
@@ -38,7 +52,14 @@ export default function PrintableStatement({ apiBaseUrl }) {
   const fetchBuyers = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${apiBaseUrl}/buyers`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${apiBaseUrl}/buyers`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) {
         throw new Error(`Failed to fetch buyers: ${res.status} ${res.statusText}`);
       }
@@ -53,7 +74,7 @@ export default function PrintableStatement({ apiBaseUrl }) {
     }
   };
 
-  const fetchStatement = async (buyer) => {
+  const fetchStatement = async (buyer: string) => {
     if (!buyer) return;
     setLoading(true);
     setError('');
@@ -63,7 +84,14 @@ export default function PrintableStatement({ apiBaseUrl }) {
       if (endDate) params.append('end_date', endDate);
       const queryString = params.toString() ? `?${params.toString()}` : '';
       const url = `${apiBaseUrl}/statements/${buyer}${queryString}`;
-      const res = await fetch(url);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) {
         throw new Error(`Failed to fetch statement: ${res.status} ${res.statusText}`);
       }
@@ -79,11 +107,11 @@ export default function PrintableStatement({ apiBaseUrl }) {
     }
   };
 
-  const filteredBuyers = buyers.filter(buyer =>
+  const filteredBuyers = buyers.filter((buyer) =>
     buyer.name.toLowerCase().includes(buyerSearchTerm.toLowerCase())
   );
 
-  const handleBuyerSelect = (buyer) => {
+  const handleBuyerSelect = (buyer: Buyer) => {
     setSelectedBuyer(buyer._id);
     setSelectedBuyerName(buyer.name);
     setBuyerSearchTerm('');
@@ -225,154 +253,32 @@ export default function PrintableStatement({ apiBaseUrl }) {
         invoice.invoice_no,
         formatDate(invoice.date),
         String(invoice.items?.length || 0),
-        `Rs. ${invoice.total_amount?.toFixed(2) || "0.00"}`,
-        (invoice.status || "unpaid").toUpperCase(),
+        `Rs. ${invoice.total_amount?.toFixed(2) || '0.00'}`,
+        (invoice.status || 'unpaid').toUpperCase(),
       ];
 
       values.forEach((text, i) => {
         // Draw cell border
         doc.rect(colX, y, columnWidths[i], 10);
         // Add text with padding
-        doc.text(text, colX + 2, y + 7);
+        doc.text(String(text), colX + 2, y + 7);
         colX += columnWidths[i];
       });
 
       y += 10;
     });
 
-    // Total and Due Amount
+    // Totals
     y += 10;
     doc.setFontSize(13);
-    doc.text(`Total Amount: Rs. ${statement.total_amount?.toFixed(2) || "0.00"}`, startX, y);
-
+    doc.text(`Total Amount: Rs. ${statement.total_amount?.toFixed(2) || '0.00'}`, startX, y);
     y += 12;
-    doc.setTextColor(220, 38, 38); // Red for due
+    doc.setTextColor(220, 38, 38);
     doc.text(`Due Amount: Rs. ${calculateDueAmount(statement).toFixed(2)}`, startX, y);
-    doc.setTextColor(0, 0, 0); // Reset to black
+    doc.setTextColor(0, 0, 0);
   }
-
   return doc;
 };
-
-  // Export PDF function (browser print dialog)
-  const generatePDFContent = () => {
-    if (!statement) return '';
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Buyer Statement - ${statement.buyer}</title>
-        <meta charset="UTF-8">
-        <style>
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 20px;
-            color: #1a1a1a;
-            background-color: #fff;
-            line-height: 1.6;
-          }
-          h1, h2, h3 {
-            color: #2563eb;
-            margin-bottom: 16px;
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 32px;
-            border-bottom: 2px solid #e5e7eb;
-            padding-bottom: 16px;
-          }
-          .info-section {
-            margin-bottom: 24px;
-            background: #f8fafc;
-            padding: 16px;
-            border-radius: 8px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            font-size: 14px;
-          }
-          th, td {
-            border: 1px solid #e5e7eb;
-            padding: 12px 8px;
-            text-align: left;
-          }
-          th {
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            font-weight: 600;
-            color: #334155;
-          }
-          .total-row {
-            font-weight: 600;
-            background: #f8fafc;
-          }
-          @media print {
-            body { margin: 0; padding: 15mm; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>Buyer Statement</h1>
-          <p>Generated on ${new Date().toLocaleDateString('en-IN')}</p>
-        </div>
-        <div class="info-section">
-          <p><strong>Buyer:</strong> ${statement.buyer}</p>
-          ${statement.buyer_gstin ? `<p><strong>GSTIN:</strong> ${statement.buyer_gstin}</p>` : ''}
-          <p><strong>Total Invoices:</strong> ${statement.invoice_count}</p>
-          <p><strong>Total Amount:</strong> Rs.${statement.total_amount?.toFixed(2) || '0.00'}</p>
-          ${(startDate || endDate) ? `
-            <div>
-              ${startDate ? `<p><strong>From:</strong> ${new Date(startDate).toLocaleDateString('en-IN')}</p>` : ''}
-              ${endDate ? `<p><strong>To:</strong> ${new Date(endDate).toLocaleDateString('en-IN')}</p>` : ''}
-            </div>
-          ` : ''}
-        </div>
-        <h3>Invoice Details</h3>
-        ${statement.invoices?.length === 0 ? 
-          '<p>No invoices found for this buyer within the selected date range.</p>' : `
-          <table>
-            <thead>
-              <tr>
-                <th>Invoice No</th>
-                <th>Date</th>
-                <th>Items</th>
-                <th>Amount (₹)</th>
-                <th>Status</th> 
-              </tr>
-            </thead>
-            <tbody>
-              ${statement.invoices?.map((invoice) => `
-                <tr>
-                  <td>${invoice.invoice_no}</td>
-                  <td>${formatDate(invoice.date)}</td>
-                  <td>${invoice.items?.length || 0}</td>
-                  <td>₹${invoice.total_amount?.toFixed(2) || '0.00'}</td>
-                  <td style="color: ${invoice.status === 'paid' ? 'green' : 'red'}; font-weight: bold; text-transform: capitalize;">
-                    ${invoice.status || 'unpaid'}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-            <tfoot>
-                <tr class="total-row">
-                  <td colspan="3" style="text-align: right;"><strong>Total:</strong></td>
-                  <td><strong>₹${statement.total_amount?.toFixed(2) || '0.00'}</strong></td>
-                  <td></td>
-                </tr>
-                <tr class="total-row" style="background: #fef2f2;">
-                  <td colspan="3" style="text-align: right; color: #dc2626;"><strong>Due Amount:</strong></td>
-                  <td><strong style="color: #dc2626;">₹${calculateDueAmount(statement).toFixed(2)}</strong></td>
-                  <td></td>
-                </tr>
-            </tfoot>
-          </table>
-        `}
-      </body>
-      </html>
-    `;
-  };
 
   const handleExportPDF = async () => {
   if (!statement) return;
@@ -397,72 +303,25 @@ export default function PrintableStatement({ apiBaseUrl }) {
   }
 };
 
-  const handleSharePDF = async () => {
-  if (!statement) return;
-  setIsGeneratingPDF(true);
-  try {
-    const doc = await generatePDF();
-    if (!doc) throw new Error("Could not generate PDF");
-    const pdfBlob = doc.output("blob");
-    const pdfFile = new File(
-      [pdfBlob],
-      `Statement_${statement.buyer}_${new Date().toISOString().split('T')[0]}.pdf`,
-      { type: "application/pdf" }
-    );
+  // Removed share handler (unused).
 
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-      await navigator.share({
-        title: `Statement for ${statement.buyer}`,
-        text: `Buyer statement for ${statement.buyer} - Total: ₹${statement.total_amount?.toFixed(2) || '0.00'}`,
-        files: [pdfFile],
-      });
-    } else {
-      // Fallback: download the PDF
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = pdfFile.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-  } catch (error) {
-    console.error('Error sharing PDF:', error);
-    alert('Error sharing statement. Please try again.');
-  } finally {
-    setIsGeneratingPDF(false);
-  }
-};
-
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString('en-IN');
-    } catch (e) {
+    } catch {
       return dateString;
     }
   };
 
-  const calculateInvoiceTotalQty = (invoice) => {
-    if (!invoice.items || !Array.isArray(invoice.items)) return 0;
-    return invoice.items.reduce((sum, item) => {
-      const qty = typeof item.total_qty === 'number' ? item.total_qty : 
-                  (typeof item.total_qty === 'string' ? parseFloat(item.total_qty) : 0);
-      return sum + (isNaN(qty) ? 0 : qty);
+  const calculateDueAmount = (st: StatementData) => {
+    if (!st || !st.invoices) return st?.total_amount || 0;
+    const paidAmount = st.invoices.reduce((sum: number, invoice: InvoiceLite) => {
+      return sum + (invoice.status === 'paid' ? (invoice.total_amount || 0) : 0);
     }, 0);
+    return (st.total_amount || 0) - paidAmount;
   };
 
-  const calculateDueAmount = (statement) => {
-  if (!statement || !statement.invoices) return statement?.total_amount || 0;
-  
-  const paidAmount = statement.invoices.reduce((sum, invoice) => {
-    return sum + (invoice.status === 'paid' ? (invoice.total_amount || 0) : 0);
-  }, 0);
-  
-  return (statement.total_amount || 0) - paidAmount;
-};
-
-const statementResultRef = useRef(null);
+const statementResultRef = useRef<HTMLDivElement | null>(null);
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
   typeof navigator === 'undefined' ? '' : navigator.userAgent
 );
@@ -569,8 +428,8 @@ useEffect(() => {
                   </div>
                   {/* Buyer Options - More compact */}
                   <div className="max-h-60 sm:max-h-80 overflow-y-auto">
-                    {filteredBuyers.length > 0 ? (
-                      filteredBuyers.map((buyer, index) => (
+                        {filteredBuyers.length > 0 ? (
+                      filteredBuyers.map((buyer) => (
                         <div
                           key={buyer._id}
                           className="p-3 sm:p-4 hover:bg-blue-50 cursor-pointer text-xs sm:text-sm font-medium transition-colors border-b border-gray-50 last:border-b-0"
@@ -591,11 +450,11 @@ useEffect(() => {
                           </div>
                         </div>
                       ))
-                        ) : buyerSearchTerm ? (
+            ) : buyerSearchTerm ? (
                           <div className="p-8 text-gray-700 text-sm text-center">
                             <AlertCircle className="w-8 h-8 mx-auto mb-3 text-gray-400" />
                             <p className="font-medium">No buyers found</p>
-                            <p className="text-xs">matching "{buyerSearchTerm}"</p>
+              <p className="text-xs">matching &quot;{buyerSearchTerm}&quot;</p>
                           </div>
                         ) : (
                           <div className="p-8 text-gray-700 text-sm text-center">

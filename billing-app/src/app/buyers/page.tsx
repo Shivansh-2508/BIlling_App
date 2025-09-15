@@ -9,7 +9,7 @@ interface Buyer {
   gstin: string;
 }
 
-const API_BASE = "https://billing-app-onzk.onrender.com";
+const API_BASE = "http://localhost:5000/";
 
 export default function BuyersPage() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);
@@ -26,11 +26,18 @@ export default function BuyersPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/buyers`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(`${API_BASE}/buyers`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to fetch buyers.");
       const data = await res.json();
       setBuyers(data);
-    } catch (err) {
+    } catch {
       setError("Failed to load buyers.");
     }
     setLoading(false);
@@ -50,11 +57,16 @@ export default function BuyersPage() {
     setError("");
     setSuccess("");
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/buyers`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(newBuyer),
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to add buyer.");
       setSuccess("Buyer added successfully!");
       setNewBuyer({ name: "", address: "", gstin: "" });
@@ -71,9 +83,15 @@ export default function BuyersPage() {
     setError("");
     setSuccess("");
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/buyers/${buyerId}`, {
         method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to delete buyer.");
       setSuccess("Buyer deleted successfully!");
       fetchBuyers();
@@ -103,11 +121,16 @@ export default function BuyersPage() {
     setError("");
     setSuccess("");
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const res = await fetch(`${API_BASE}/buyers/${buyerId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(editBuyer),
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        return;
+      }
       if (!res.ok) throw new Error("Failed to update buyer.");
       setSuccess("Buyer updated successfully!");
       setEditId(null);
