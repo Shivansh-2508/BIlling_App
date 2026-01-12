@@ -14,7 +14,7 @@ export default function BackendWakeup() {
       } catch (err) {
         console.error("Backend ping failed:", err);
       }
-    }, 4 * 60 * 10); // 4 minutes (your math was off btw)
+    }, 4 * 60 * 1000); // 4 minutes (your math was off btw)
 
     return () => clearInterval(interval);
   }, []);
