@@ -757,7 +757,7 @@ useEffect(() => {
                       </div>
                     </div>
                   </div>
-                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl p-6 text-white">
+                  <div className="bg-gradient-to-r from-amber-500 to-blue-500 rounded-xl p-6 text-white">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-amber-100 text-sm font-medium">Total Amount</p>
@@ -856,7 +856,7 @@ useEffect(() => {
                                       </td>
                                       <td></td>
                                     </tr>
-                                    <tr className="bg-gradient-to-r from-orange-50 to-red-50">
+                                    <tr className="bg-gradient-to-r from-blue-50 to-red-50">
                                       <td colSpan={3} className="px-6 py-4 text-right text-sm font-bold text-gray-900">Due Amount:</td>
                                       <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="text-lg font-bold text-red-600">₹{calculateDueAmount(statement).toFixed(2)}</span>

@@ -3,6 +3,9 @@ import Link from "next/link";
 import ActionCard from "@/components/ActionCard";
 import CreateInvoiceButton from "@/components/CreateInvoiceButton";
 import UpdateStockButton from "@/components/UpdateStock";
+import BackendWakeup from "@/components/BackendWakeup";
+
+
 
 export default function Home() {
   const menuItems = [
@@ -37,6 +40,12 @@ export default function Home() {
       link: "/buyers"
     },
     {
+      title: "Buyer Accounts",
+      description: "Track invoices, payments & balances",
+      icon: "wallet",
+      link: "/buyers/accounts"
+    },
+    {
       title: "Suppliers",
       description: "Manage your supplier directory",
       icon: "truck",
@@ -58,6 +67,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <BackendWakeup />
       {/* Header Section */}
       <div className="max-w-7xl mx-auto text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-800 mb-4">Billing App</h1>

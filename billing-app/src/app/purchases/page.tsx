@@ -142,21 +142,21 @@ export default function PurchasesPage() {
         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow p-6 mb-6 text-white">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
-              <p className="text-orange-100 text-sm">Total Purchases</p>
+              <p className="text-blue-100 text-sm">Total Purchases</p>
               <p className="text-2xl font-bold">{filteredPurchases.length}</p>
             </div>
             <div>
-              <p className="text-orange-100 text-sm">Total Amount</p>
+              <p className="text-blue-100 text-sm">Total Amount</p>
               <p className="text-2xl font-bold">₹{calculateTotalPurchased()}</p>
             </div>
             <div>
-              <p className="text-orange-100 text-sm">Avg Per Purchase</p>
+              <p className="text-blue-100 text-sm">Avg Per Purchase</p>
               <p className="text-2xl font-bold">
                 ₹{(filteredPurchases.length > 0 ? (Number(calculateTotalPurchased()) / filteredPurchases.length) : 0).toFixed(2)}
               </p>
             </div>
             <div>
-              <p className="text-orange-100 text-sm">With Invoice</p>
+              <p className="text-blue-100 text-sm">With Invoice</p>
               <p className="text-2xl font-bold">{filteredPurchases.filter(p => p.invoice_number).length}</p>
             </div>
           </div>

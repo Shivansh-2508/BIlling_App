@@ -148,18 +148,18 @@ export default function FinancialDashboard() {
               </div>
 
               {/* Profit Card */}
-              <div className={`bg-gradient-to-br rounded-lg shadow p-6 text-white ${financialData.profit.gross >= 0 ? 'from-blue-500 to-blue-600' : 'from-orange-500 to-orange-600'}`}>
-                <p className={`text-sm mb-1 ${financialData.profit.gross >= 0 ? 'text-blue-100' : 'text-orange-100'}`}>
+              <div className={`bg-gradient-to-br rounded-lg shadow p-6 text-white ${financialData.profit.gross >= 0 ? 'from-blue-500 to-blue-600' : 'from-blue-500 to-blue-600'}`}>
+                <p className={`text-sm mb-1 ${financialData.profit.gross >= 0 ? 'text-blue-100' : 'text-blue-100'}`}>
                   {financialData.profit.gross >= 0 ? 'Gross Profit' : 'Gross Loss'}
                 </p>
                 <p className="text-3xl font-bold">
                   {financialData.profit.gross >= 0 ? '+' : '-'}₹{Math.abs(financialData.profit.gross).toFixed(2)}
                 </p>
                 <div className="mt-4 text-xs space-y-1">
-                  <p className={financialData.profit.gross >= 0 ? 'text-blue-100' : 'text-orange-100'}>
+                  <p className={financialData.profit.gross >= 0 ? 'text-blue-100' : 'text-blue-100'}>
                     Margin: {financialData.profit.margin_percentage}%
                   </p>
-                  <p className={financialData.profit.gross >= 0 ? 'text-blue-100' : 'text-orange-100'}>
+                  <p className={financialData.profit.gross >= 0 ? 'text-blue-100' : 'text-blue-100'}>
                     Invoices: {financialData.invoice_count}
                   </p>
                 </div>
@@ -310,7 +310,7 @@ export default function FinancialDashboard() {
             href="/purchases"
             className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition text-center"
           >
-            <p className="text-2xl font-bold text-orange-600 mb-2">🛒</p>
+            <p className="text-2xl font-bold text-blue-600 mb-2">🛒</p>
             <p className="font-medium text-gray-900">View Purchases</p>
           </Link>
           <Link

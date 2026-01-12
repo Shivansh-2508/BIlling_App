@@ -23,6 +23,7 @@ buyers = db["buyers"]
 products = db["products"]
 purchases = db["purchases"]
 suppliers = db["suppliers"]
+payments = db["payments"]
 
 @app.route("/")
 def home():
@@ -708,6 +709,163 @@ def delete_purchase(purchase_id):
         return jsonify({"message": "Purchase deleted"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+# --- Buyer Accounts Routes ---
+
+# GET: All buyer accounts with summary
+@app.route('/buyer-accounts', methods=['GET'])
+def get_buyer_accounts():
+    try:
+        all_buyers = list(buyers.find({}, {"_id": 1, "name": 1}))
+        accounts = []
+        
+        for buyer in all_buyers:
+            buyer_id = str(buyer["_id"])
+            buyer_name = buyer.get("name", "Unknown")
+            
+            # Get all invoices for this buyer
+            buyer_invoices = list(invoices.find({"buyer_name": buyer_name}, {"total_amount": 1, "invoice_no": 1, "date": 1}))
+            total_invoiced = sum(inv.get("total_amount", 0) for inv in buyer_invoices)
+            
+            # Get all payments for this buyer
+            buyer_payments = list(payments.find({"buyer_id": ObjectId(buyer_id)}, {"amount": 1}))
+            total_paid = sum(pay.get("amount", 0) for pay in buyer_payments)
+            
+            balance = total_invoiced - total_paid
+            
+            accounts.append({
+                "buyerId": buyer_id,
+                "buyerName": buyer_name,
+                "totalInvoiced": total_invoiced,
+                "totalPaid": total_paid,
+                "balance": balance,
+                "invoiceCount": len(buyer_invoices),
+                "paymentCount": len(buyer_payments)
+            })
+        
+        return jsonify(accounts), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# GET: Single buyer ledger with transactions
+@app.route('/buyer-accounts/<buyer_id>', methods=['GET'])
+def get_buyer_ledger(buyer_id):
+    try:
+        buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
+        if not buyer:
+            return jsonify({"error": "Buyer not found"}), 404
+        
+        buyer_name = buyer.get("name", "Unknown")
+        
+        # Get all invoices for this buyer
+        buyer_invoices = list(invoices.find({"buyer_name": buyer_name}, 
+                                           {"total_amount": 1, "invoice_no": 1, "date": 1}))
+        total_invoiced = sum(inv.get("total_amount", 0) for inv in buyer_invoices)
+        
+        # Get all payments for this buyer
+        buyer_payments = list(payments.find({"buyer_id": ObjectId(buyer_id)}, 
+                                           {"amount": 1, "date": 1, "reference": 1}))
+        total_paid = sum(pay.get("amount", 0) for pay in buyer_payments)
+        
+        # Build transactions list
+        transactions = []
+        
+        # Add invoices as transactions
+        for inv in buyer_invoices:
+            transactions.append({
+                "date": inv.get("date", ""),
+                "type": "invoice",
+                "invoiceNumber": inv.get("invoice_no", ""),
+                "description": f"Invoice {inv.get('invoice_no', '')}",
+                "amount": inv.get("total_amount", 0),
+                "reference": ""
+            })
+        
+        # Add payments as transactions
+        for pay in buyer_payments:
+            transaction = {
+                "date": pay.get("date", ""),
+                "type": "payment",
+                "description": "Payment received",
+                "amount": pay.get("amount", 0),
+                "reference": pay.get("reference", "")
+            }
+            # Include image if exists
+            if pay.get("image"):
+                transaction["image"] = f"data:image/jpeg;base64,{pay.get('image')}" if not pay.get('image').startswith('data:') else pay.get('image')
+            transactions.append(transaction)
+        
+        # Sort transactions by date
+        transactions.sort(key=lambda x: x["date"])
+        
+        balance = total_invoiced - total_paid
+        
+        return jsonify({
+            "buyerId": buyer_id,
+            "buyerName": buyer_name,
+            "totalInvoiced": total_invoiced,
+            "totalPaid": total_paid,
+            "balance": balance,
+            "transactions": transactions
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# POST: Record payment for buyer
+@app.route('/buyer-accounts/<buyer_id>/payment', methods=['POST'])
+def record_payment(buyer_id):
+    try:
+        # Handle both JSON and FormData
+        if request.is_json:
+            data = request.get_json()
+            image_data = None
+        else:
+            data = request.form.to_dict()
+            image_file = request.files.get('image')
+            image_data = None
+            if image_file:
+                image_data = image_file.read().decode('utf-8', errors='ignore')
+        
+        if not data.get("date") or not data.get("amount"):
+            return jsonify({"error": "Date and amount are required"}), 400
+        
+        buyer = buyers.find_one({"_id": ObjectId(buyer_id)})
+        if not buyer:
+            return jsonify({"error": "Buyer not found"}), 404
+        
+        payment_doc = {
+            "buyer_id": ObjectId(buyer_id),
+            "buyer_name": buyer.get("name", "Unknown"),
+            "date": data.get("date"),
+            "amount": float(data.get("amount", 0)),
+            "reference": data.get("reference", ""),
+            "created_at": datetime.now().isoformat()
+        }
+        
+        # Add image if provided
+        if image_data:
+            # Convert to base64 for storage
+            import base64
+            try:
+                if request.is_json:
+                    payment_doc["image"] = image_data
+                else:
+                    image_binary = request.files.get('image').read()
+                    payment_doc["image"] = base64.b64encode(image_binary).decode('utf-8')
+            except:
+                pass
+        
+        result = payments.insert_one(payment_doc)
+        
+        return jsonify({
+            "message": "Payment recorded successfully",
+            "_id": str(result.inserted_id)
+        }), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # --- Financial Analytics Routes ---
