@@ -7,6 +7,18 @@ import UpdateStockButton from "@/components/UpdateStock";
 export default function Home() {
   const menuItems = [
     {
+      title: "Financial Dashboard",
+      description: "Monitor profit, loss, revenue, and expenses",
+      icon: "chart-bar",
+      link: "/financial"
+    },
+    {
+      title: "Purchases",
+      description: "Track and manage purchase orders",
+      icon: "shopping-cart",
+      link: "/purchases"
+    },
+    {
       title: "Statements",
       description: "View and manage buyer statements",
       icon: "document-text",
@@ -25,9 +37,15 @@ export default function Home() {
       link: "/buyers"
     },
     {
+      title: "Suppliers",
+      description: "Manage your supplier directory",
+      icon: "truck",
+      link: "/suppliers"
+    },
+    {
       title: "Create Invoice",
-      description: "Generate financial reports",
-      icon: "chart-bar",
+      description: "Generate new invoices",
+      icon: "file-plus",
       link: "/invoices/create"
     },
     {
@@ -44,31 +62,8 @@ export default function Home() {
       <div className="max-w-7xl mx-auto text-center mb-12">
         <h1 className="text-4xl font-bold text-gray-800 mb-4">Billing App</h1>
         <p className="text-lg text-gray-700 max-w-2xl mx-auto">
-          Manage your invoices, statements, and reports in one place
+          Complete business management system for invoices, purchases, inventory & financial analytics
         </p>
-      </div>
-
-      {/* Quick Action Section */}
-      <div className="max-w-7xl mx-auto mb-12">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
-          <div className="flex flex-wrap gap-4">
-            <CreateInvoiceButton />
-            <UpdateStockButton />
-            <Link 
-              href="/statement" 
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              View Statements
-            </Link>
-            <Link 
-              href="/invoices" 
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Browse Invoices
-            </Link>
-          </div>
-        </div>
       </div>
 
       {/* Main Navigation Cards */}

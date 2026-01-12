@@ -21,6 +21,8 @@ db = client["billing-app"]
 invoices = db["invoices"]
 buyers = db["buyers"]
 products = db["products"]
+purchases = db["purchases"]
+suppliers = db["suppliers"]
 
 @app.route("/")
 def home():
@@ -555,6 +557,259 @@ def get_buyer_statement(buyer_id):
         print(traceback.format_exc())
         return jsonify({'error': 'Internal Server Error'}), 500
 
+
+# --- Supplier Routes ---
+
+@app.route("/suppliers", methods=["GET"])
+def get_suppliers():
+    all_suppliers = list(suppliers.find({}, {"_id": 1, "name": 1, "address": 1, "contact": 1}))
+    for supplier in all_suppliers:
+        supplier["_id"] = str(supplier["_id"])
+    return jsonify(all_suppliers)
+
+
+@app.route("/suppliers", methods=["POST"])
+def add_supplier():
+    data = request.json
+    name = data.get("name")
+    address = data.get("address")
+    contact = data.get("contact", "")
+
+    if not name or not address:
+        return jsonify({"error": "Name and address are required"}), 400
+
+    supplier_data = {
+        "name": name,
+        "address": address,
+        "contact": contact
+    }
+
+    result = suppliers.insert_one(supplier_data)
+    return jsonify({"message": "Supplier added", "id": str(result.inserted_id)}), 201
+
+
+@app.route('/suppliers/<supplier_id>', methods=['PUT'])
+def update_supplier(supplier_id):
+    try:
+        data = request.get_json()
+        result = suppliers.update_one(
+            {"_id": ObjectId(supplier_id)},
+            {"$set": data}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Supplier not found"}), 404
+        return jsonify({"message": "Supplier updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/suppliers/<supplier_id>', methods=['DELETE'])
+def delete_supplier(supplier_id):
+    try:
+        result = suppliers.delete_one({"_id": ObjectId(supplier_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Supplier not found"}), 404
+        return jsonify({"message": "Supplier deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# --- Purchase Routes ---
+
+@app.route("/purchases", methods=["GET"])
+def get_purchases():
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        query = {}
+        if start_date or end_date:
+            date_query = {}
+            if start_date:
+                date_query['$gte'] = start_date
+            if end_date:
+                date_query['$lte'] = end_date
+            if date_query:
+                query['date'] = date_query
+        
+        all_purchases = list(purchases.find(query))
+        
+        for purchase in all_purchases:
+            purchase["_id"] = str(purchase["_id"])
+        
+        return jsonify(all_purchases)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/purchases/<purchase_id>", methods=["GET"])
+def get_purchase(purchase_id):
+    try:
+        purchase = purchases.find_one({"_id": ObjectId(purchase_id)})
+        if not purchase:
+            return jsonify({"error": "Purchase not found"}), 404
+        return jsonify(convert_objectid(purchase))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/purchases", methods=["POST"])
+def add_purchase():
+    try:
+        data = request.get_json()
+        
+        required_fields = ['purchase_no', 'date', 'supplier_name', 'amount']
+        missing_fields = [field for field in required_fields if field not in data or data[field] is None]
+        
+        if missing_fields:
+            return jsonify({'error': f'Missing fields: {", ".join(missing_fields)}'}), 400
+
+        purchase_data = {
+            'purchase_no': data['purchase_no'],
+            'date': data['date'],
+            'supplier_name': data['supplier_name'],
+            'amount': float(data['amount']),
+            'invoice_number': data.get('invoice_number'),
+            'invoice_file': data.get('invoice_file'),
+            'description': data.get('description'),
+            'reference': data.get('reference'),
+            'status': 'completed',
+            'timestamp': datetime.now().isoformat()
+        }
+
+        result = purchases.insert_one(purchase_data)
+        return jsonify({'message': 'Purchase recorded', 'id': str(result.inserted_id)}), 201
+    except Exception as e:
+        print(f'Error in /purchases: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/purchases/<purchase_id>', methods=['PUT'])
+def update_purchase(purchase_id):
+    try:
+        data = request.get_json()
+        result = purchases.update_one(
+            {"_id": ObjectId(purchase_id)},
+            {"$set": data}
+        )
+        if result.matched_count == 0:
+            return jsonify({"error": "Purchase not found"}), 404
+        return jsonify({"message": "Purchase updated"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/purchases/<purchase_id>', methods=['DELETE'])
+def delete_purchase(purchase_id):
+    try:
+        result = purchases.delete_one({"_id": ObjectId(purchase_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Purchase not found"}), 404
+        return jsonify({"message": "Purchase deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# --- Financial Analytics Routes ---
+
+@app.route('/financial-summary', methods=['GET'])
+def financial_summary():
+    try:
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Build date query
+        date_query = {}
+        if start_date:
+            date_query['$gte'] = start_date
+        if end_date:
+            date_query['$lte'] = end_date
+        
+        # Query filters
+        invoice_query = {}
+        purchase_query = {}
+        if date_query:
+            invoice_query['date'] = date_query
+            purchase_query['date'] = date_query
+        
+        # Get all relevant invoices and purchases
+        all_invoices = list(invoices.find(invoice_query, {"total_amount": 1, "status": 1}))
+        all_purchases = list(purchases.find(purchase_query, {"amount": 1}))
+        
+        # Calculate totals
+        total_revenue = sum(inv.get('total_amount', 0) for inv in all_invoices)
+        paid_revenue = sum(inv.get('total_amount', 0) for inv in all_invoices if inv.get('status') == 'paid')
+        unpaid_revenue = total_revenue - paid_revenue
+        
+        total_expenses = sum(pur.get('amount', 0) for pur in all_purchases)
+        
+        gross_profit = total_revenue - total_expenses
+        profit_margin = (gross_profit / total_revenue * 100) if total_revenue > 0 else 0
+        
+        summary = {
+            'period': {
+                'start_date': start_date,
+                'end_date': end_date
+            },
+            'revenue': {
+                'total': total_revenue,
+                'paid': paid_revenue,
+                'unpaid': unpaid_revenue
+            },
+            'expenses': total_expenses,
+            'profit': {
+                'gross': gross_profit,
+                'margin_percentage': round(profit_margin, 2)
+            },
+            'invoice_count': len(all_invoices),
+            'purchase_count': len(all_purchases)
+        }
+        
+        return jsonify(summary), 200
+    except Exception as e:
+        print(f'Error in /financial-summary: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/inventory-report', methods=['GET'])
+def inventory_report():
+    try:
+        all_products = list(products.find({}, {
+            "_id": 1,
+            "name": 1,
+            "stock_quantity": 1,
+            "default_rate_per_kg": 1
+        }))
+        
+        total_inventory_value = 0
+        low_stock_items = []
+        
+        for product in all_products:
+            product["_id"] = str(product["_id"])
+            stock = float(product.get('stock_quantity', 0))
+            rate = float(product.get('default_rate_per_kg', 0))
+            product_value = stock * rate
+            total_inventory_value += product_value
+            product['inventory_value'] = product_value
+            
+            # Flag low stock items (less than 10 units)
+            if stock < 10:
+                low_stock_items.append({
+                    'product': product['name'],
+                    'stock': stock
+                })
+        
+        report = {
+            'total_products': len(all_products),
+            'total_inventory_value': round(total_inventory_value, 2),
+            'low_stock_count': len(low_stock_items),
+            'low_stock_items': low_stock_items,
+            'products': all_products
+        }
+        
+        return jsonify(report), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == "__main__":
