@@ -25,6 +25,44 @@ purchases = db["purchases"]
 suppliers = db["suppliers"]
 payments = db["payments"]
 
+
+def get_financial_year(date_str: str) -> str:
+    try:
+        d = datetime.strptime(str(date_str)[:10], '%Y-%m-%d')
+    except (ValueError, TypeError):
+        d = datetime.now()
+    if d.month >= 4:
+        return f"{d.year}-{d.year + 1}"
+    return f"{d.year - 1}-{d.year}"
+
+
+def current_financial_year() -> str:
+    now = datetime.now()
+    if now.month >= 4:
+        return f"{now.year}-{now.year + 1}"
+    return f"{now.year - 1}-{now.year}"
+
+
+def _backfill_fy_for_collection(inv_col) -> int:
+    cursor = inv_col.find({'financial_year': {'$exists': False}}, {'_id': 1, 'date': 1})
+    n = 0
+    for inv in cursor:
+        inv_col.update_one({'_id': inv['_id']}, {'$set': {'financial_year': get_financial_year(inv.get('date', ''))}})
+        n += 1
+    return n
+
+
+def run_fy_migration():
+    try:
+        total = _backfill_fy_for_collection(invoices)
+        if total:
+            print(f"FY migration: backfilled financial_year on {total} invoice(s).")
+    except Exception as exc:
+        print("FY migration error:", exc)
+
+
+run_fy_migration()
+
 @app.route("/")
 def home():
     return jsonify({"message": "Billing backend is live!"})
@@ -40,7 +78,9 @@ def convert_objectid(doc):
 # GET: All invoices
 @app.route("/invoices", methods=["GET"])
 def get_invoices():
-    all_invoices = list(invoices.find({}, {
+    fy = request.args.get('financial_year') or current_financial_year()
+    query = {} if fy == 'all' else {'financial_year': fy}
+    all_invoices = list(invoices.find(query, {
         "_id": 1,
         "invoice_no": 1,
         "date": 1,
@@ -52,7 +92,8 @@ def get_invoices():
         "cgst": 1,
         "sgst": 1,
         "total_amount": 1,
-        "status": 1
+        "status": 1,
+        "financial_year": 1,
     }))
     all_invoices = [convert_objectid(inv) for inv in all_invoices]
     return jsonify(all_invoices)
@@ -117,7 +158,8 @@ def add_invoice():
             'cgst': data['cgst'],
             'sgst': data['sgst'],
             'total_amount': data['total_amount'],
-            'status': 'unpaid'
+            'status': 'unpaid',
+            'financial_year': get_financial_year(data['date']),
         }
 
         result = invoices.insert_one(invoice_data)
@@ -156,7 +198,10 @@ def update_invoice(invoice_id):
         # Ensure gstin field exists in update data
         if 'gstin' not in data:
             data['gstin'] = ''
-            
+
+        if 'date' in data:
+            data['financial_year'] = get_financial_year(data['date'])
+
         result = invoices.update_one(
             {"_id": ObjectId(invoice_id)},
             {"$set": data}
@@ -875,54 +920,38 @@ def financial_summary():
     try:
         start_date = request.args.get('start_date')
         end_date = request.args.get('end_date')
-        
-        # Build date query
+
         date_query = {}
         if start_date:
             date_query['$gte'] = start_date
         if end_date:
             date_query['$lte'] = end_date
-        
-        # Query filters
+
         invoice_query = {}
         purchase_query = {}
         if date_query:
             invoice_query['date'] = date_query
             purchase_query['date'] = date_query
-        
-        # Get all relevant invoices and purchases
+
         all_invoices = list(invoices.find(invoice_query, {"total_amount": 1, "status": 1}))
         all_purchases = list(purchases.find(purchase_query, {"amount": 1}))
-        
-        # Calculate totals
+
         total_revenue = sum(inv.get('total_amount', 0) for inv in all_invoices)
         paid_revenue = sum(inv.get('total_amount', 0) for inv in all_invoices if inv.get('status') == 'paid')
         unpaid_revenue = total_revenue - paid_revenue
-        
         total_expenses = sum(pur.get('amount', 0) for pur in all_purchases)
-        
         gross_profit = total_revenue - total_expenses
         profit_margin = (gross_profit / total_revenue * 100) if total_revenue > 0 else 0
-        
+
         summary = {
-            'period': {
-                'start_date': start_date,
-                'end_date': end_date
-            },
-            'revenue': {
-                'total': total_revenue,
-                'paid': paid_revenue,
-                'unpaid': unpaid_revenue
-            },
+            'period': {'start_date': start_date, 'end_date': end_date},
+            'revenue': {'total': total_revenue, 'paid': paid_revenue, 'unpaid': unpaid_revenue},
             'expenses': total_expenses,
-            'profit': {
-                'gross': gross_profit,
-                'margin_percentage': round(profit_margin, 2)
-            },
+            'profit': {'gross': gross_profit, 'margin_percentage': round(profit_margin, 2)},
             'invoice_count': len(all_invoices),
             'purchase_count': len(all_purchases)
         }
-        
+
         return jsonify(summary), 200
     except Exception as e:
         print(f'Error in /financial-summary: {e}')
@@ -933,15 +962,12 @@ def financial_summary():
 def inventory_report():
     try:
         all_products = list(products.find({}, {
-            "_id": 1,
-            "name": 1,
-            "stock_quantity": 1,
-            "default_rate_per_kg": 1
+            "_id": 1, "name": 1, "stock_quantity": 1, "default_rate_per_kg": 1
         }))
-        
+
         total_inventory_value = 0
         low_stock_items = []
-        
+
         for product in all_products:
             product["_id"] = str(product["_id"])
             stock = float(product.get('stock_quantity', 0))
@@ -949,14 +975,9 @@ def inventory_report():
             product_value = stock * rate
             total_inventory_value += product_value
             product['inventory_value'] = product_value
-            
-            # Flag low stock items (less than 10 units)
             if stock < 10:
-                low_stock_items.append({
-                    'product': product['name'],
-                    'stock': stock
-                })
-        
+                low_stock_items.append({'product': product['name'], 'stock': stock})
+
         report = {
             'total_products': len(all_products),
             'total_inventory_value': round(total_inventory_value, 2),
@@ -964,10 +985,89 @@ def inventory_report():
             'low_stock_items': low_stock_items,
             'products': all_products
         }
-        
+
         return jsonify(report), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# --- Records Routes (archived financial years) ---
+
+@app.route('/records/financial-years', methods=['GET'])
+def get_record_financial_years():
+    current_fy = current_financial_year()
+    pipeline = [
+        {'$match': {'financial_year': {'$exists': True, '$ne': current_fy}}},
+        {'$group': {'_id': '$financial_year'}},
+        {'$sort': {'_id': -1}},
+    ]
+    fys = [doc['_id'] for doc in invoices.aggregate(pipeline) if doc['_id']]
+    return jsonify(fys)
+
+
+@app.route('/records', methods=['GET'])
+def get_records():
+    current_fy = current_financial_year()
+    fy_filter = request.args.get('financial_year')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    month = request.args.get('month')
+    invoice_no_filter = request.args.get('invoice_no')
+    buyer_filter = request.args.get('buyer_name')
+
+    query: dict = {}
+    if fy_filter:
+        query['financial_year'] = fy_filter
+    else:
+        query['financial_year'] = {'$exists': True, '$ne': current_fy}
+
+    date_query = {}
+    if month:
+        try:
+            y, m = map(int, month.split('-'))
+            date_query['$gte'] = f"{y}-{m:02d}-01"
+            if m == 12:
+                date_query['$lt'] = f"{y + 1}-01-01"
+            else:
+                date_query['$lt'] = f"{y}-{m + 1:02d}-01"
+        except ValueError:
+            pass
+    else:
+        if start_date:
+            date_query['$gte'] = start_date
+        if end_date:
+            date_query['$lte'] = end_date
+
+    if date_query:
+        query['date'] = date_query
+
+    if invoice_no_filter:
+        query['invoice_no'] = {'$regex': invoice_no_filter, '$options': 'i'}
+    if buyer_filter:
+        query['buyer_name'] = {'$regex': buyer_filter, '$options': 'i'}
+
+    projection = {
+        '_id': 1, 'invoice_no': 1, 'date': 1, 'buyer_name': 1,
+        'address': 1, 'gstin': 1, 'items': 1, 'subtotal': 1,
+        'cgst': 1, 'sgst': 1, 'total_amount': 1, 'status': 1,
+        'financial_year': 1,
+    }
+
+    records = list(invoices.find(query, projection).sort('date', -1))
+    records = [convert_objectid(r) for r in records]
+
+    grouped: dict = {}
+    for r in records:
+        fy = r.get('financial_year', 'Unknown')
+        grouped.setdefault(fy, []).append(r)
+
+    return jsonify({'records': records, 'grouped': grouped, 'total': len(records)})
+
+
+@app.route('/admin/migrate-financial-years', methods=['POST'])
+def admin_migrate_fy():
+    n = _backfill_fy_for_collection(invoices)
+    return jsonify({'message': f'Migrated {n} invoice(s).', 'count': n}), 200
 
 
 if __name__ == "__main__":

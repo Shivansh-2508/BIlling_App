@@ -2,18 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Plus, Save, Search, ChevronDown, X, User, AlertCircle, Calendar, Package, Hash, ShoppingCart, Eye } from 'lucide-react';
+import { FileText, Plus, Save, Search, ChevronDown, X, User, AlertCircle, Calendar, Package, Hash, ShoppingCart, Eye, CalendarDays } from 'lucide-react';
 import { InvoicePreview } from '@/components/InvoicePreview';
 import BackToHome from '@/components/BackToHome';
 
+type Buyer = { _id: string; name: string; gstin?: string; address?: string };
+type Product = { _id: string; name: string; default_packing_qty?: number; default_rate_per_kg?: number; hsn_code?: string };
+type Item = { product_name: string; packing_qty: number; no_of_units: number; rate_per_kg: number; hsn_code: string };
+
+function getCurrentFY(): string {
+  const now = new Date();
+  return now.getMonth() >= 3
+    ? `${now.getFullYear()}-${now.getFullYear() + 1}`
+    : `${now.getFullYear() - 1}-${now.getFullYear()}`;
+}
+
+function formatFY(fy: string): string {
+  const parts = fy.split('-');
+  if (parts.length === 2) return `FY ${parts[0]}–${parts[1].slice(2)}`;
+  return fy;
+}
+
 export default function CreateInvoicePage() {
   const router = useRouter();
-  const fmt = (n: number | string) => Number(n).toFixed(2);
-  
+  const currentFY = getCurrentFY();
   // Buyer-related state
-  const [buyers, setBuyers] = useState([]);
+  const [buyers, setBuyers] = useState<Buyer[]>([]);
   const [selectedBuyerId, setSelectedBuyerId] = useState('');
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<Product[]>([]);
   
   // Search functionality state for buyer dropdown
   const [buyerSearchTerm, setBuyerSearchTerm] = useState('');
@@ -46,8 +62,8 @@ export default function CreateInvoicePage() {
 
   // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (buyerDropdownRef.current && !buyerDropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (buyerDropdownRef.current && !(buyerDropdownRef.current as HTMLElement).contains(event.target as Node)) {
         setIsBuyerDropdownOpen(false);
       }
     };
@@ -132,10 +148,10 @@ export default function CreateInvoicePage() {
   };
 
   // Handle item changes
-  const handleItemChange = (index: number, field: string, value: any) => {
+  const handleItemChange = (index: number, field: string, value: string | number) => {
     const updated = [...form.items];
 
-    updated[index][field] = ['product_name', 'hsn_code'].includes(field)
+    (updated[index] as Record<string, string | number>)[field] = ['product_name', 'hsn_code'].includes(field)
       ? value
       : Number(value);
 
@@ -200,9 +216,9 @@ export default function CreateInvoicePage() {
     const selected = products.find(p => p.name === value);
     if (selected) {
       handleItemChange(idx, 'product_name', selected.name);
-      handleItemChange(idx, 'packing_qty', selected.default_packing_qty);
-      handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg);
-      handleItemChange(idx, 'hsn_code', selected.hsn_code);
+      handleItemChange(idx, 'packing_qty', selected.default_packing_qty ?? 0);
+      handleItemChange(idx, 'rate_per_kg', selected.default_rate_per_kg ?? 0);
+      handleItemChange(idx, 'hsn_code', selected.hsn_code ?? '');
     }
   };
 
@@ -270,9 +286,15 @@ export default function CreateInvoicePage() {
           <div className="w-full xl:w-1/2">
             <div className="bg-white/90 backdrop-blur-sm border border-white/20 rounded-2xl shadow-2xl overflow-hidden">
               <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 sm:p-6">
-                <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                  <h2 className="text-lg sm:text-xl font-semibold text-white">Invoice Details</h2>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <h2 className="text-lg sm:text-xl font-semibold text-white">Invoice Details</h2>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-white/20 text-white px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0">
+                    <CalendarDays className="w-3 h-3" />
+                    {formatFY(currentFY)}
+                  </div>
                 </div>
                 <p className="text-blue-100 mt-1 text-sm sm:text-base">Fill in the invoice information below</p>
               </div>
