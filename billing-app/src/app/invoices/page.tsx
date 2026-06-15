@@ -6,7 +6,7 @@ import { Download, Share2, FileText, Eye, Clock, CheckCircle2, XCircle, Trash2, 
 import BackToHome from '@/components/BackToHome';
 import CreateInvoiceButton from '@/components/CreateInvoiceButton';
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'http://localhost:5000';
+const API = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:5000';
 
 interface Item {
   product_name: string;
